@@ -7,7 +7,7 @@
 * Dependence: Boost
 ## Body types:
   There a two kinds of bodies:normal body(red, blue, green and purple) and Anti-G body(negative mass body, white and yellow), each kind has three types:
-  - Normal
+  - Common
   - Giant star
   - Blackhole(annular shape accretion disk)
   
@@ -17,12 +17,10 @@
   - Multi threads with SIMD(AVX2)：about 4000 bodies at FPS 60
   
 ## Screen shots
-![Main](../master/Screenshots/main.png)
+![Common](../master/Screenshots/common.gif)
   
-![Options](../master/Screenshots/options.png)  
+![Giant](../master/Screenshots/giant.gif)  
   
-![Statistics](../master/Screenshots/stat.png)
-
 ## License  
 
 Copyright © 2020 Wang <wtcyh0707(at)gmail.com>
