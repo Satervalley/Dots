@@ -5,9 +5,16 @@
 * Dev platform: Visual Studio comm 2019  
 * Framework: MFC  
 * Dependence: Boost
-
+## Body types:
+  There a two kinds of bodies:normal body(red, blue, green and purple) and Anti-G body(negative mass body, white and yellow), each kind has three types:
+  - Normal
+  - Giant star
+  - Blackhole(annular shape accretion disk)
+  
 ## Performance
-  Dots u
+  Dots uses CPU for calculations. A simple test on a normal cpu (Intel 6200u) shows that:
+  - Single thread with SIMD(AVX2)：about 3000 bodies at FPS 60
+  - Multi threads with SIMD(AVX2)：about 4000 bodies at FPS 60
   
 ## Screen shots
 ![Main](../master/Screenshots/main.png)
