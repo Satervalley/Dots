@@ -6,11 +6,15 @@
 * Framework: MFC  
 * Dependence: Boost
 
-## performance
-  
+## Performance
+  Dots u
   
 ## Screen shots
-
+![Main](../master/Screenshots/main.png)
+  
+![Options](../master/Screenshots/options.png)  
+  
+![Statistics](../master/Screenshots/stat.png)
 
 ## License  
 
