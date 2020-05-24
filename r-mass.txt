@@ -1,0 +1,23 @@
+normal star radius:	2	3	4	5	6	7
+giant star radius:	15	16	17	18	19
+			new:	11	12	13	14	15	16
+blackhole radius:	4	5	6	7
+
+normal star mass:	2	4	8	16	32	64	128	(random between)
+			new:	2	8	16	32	54	86	128	****
+giant star mass:	3375	4096	4913	5832	6859
+			new:	432		686		1024	1458	2000	2662	3456	****
+blackhole mass:		3280	7320	14280	25312
+		r ^ 6 / 4	1024	3906	11664	29412	
+		r ^ 5 / 4	256		781		1944	4201	8192
+		r ^ 6 / 8	512		1953	5832	14706
+		r ^ 6 / 16	256		976		2916	7353	16384	****
+
+normal star diameter:	5	6	7	8	9	10	11	12	13	14	15
+normal star mass:		2	4	7	11	16	23	32	43	57	74	94	118
+
+giant star diameter:	23		24		25		26		27		28		29		30		31		32		33
+giant star mass:		418		485		559		641		732		831		940		1058	1187	1326	1477	1640
+
+blackhole diameter:		9		10		11		12		13		14		15			
+blackhole mass:			302		512		824		1274	1901	2754	3888	5369

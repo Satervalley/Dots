@@ -5,6 +5,8 @@
 #include "Dots.h"
 #include "CShowWnd.h"
 #include "CExplosion.h"
+#include "CUtil.h"
+
 
 #ifdef USING_AVX
 #include <intrin.h>
@@ -21,6 +23,8 @@ IMPLEMENT_DYNAMIC(CShowWnd, CWnd)
 CShowWnd::CShowWnd()
 {
 	pWorld = new CWorld;
+	clrOSD1 = RandomColor(rgRandom);
+	clrOSD2 = RandomColor(rgRandom);
 }
 
 
@@ -34,7 +38,7 @@ CShowWnd::~CShowWnd()
 BEGIN_MESSAGE_MAP(CShowWnd, CWnd)
 	ON_WM_CREATE()
 	ON_WM_LBUTTONDOWN()
-	ON_REGISTERED_MESSAGE(AFX_WM_DRAW2D, &CShowWnd::OnDraw2d)
+	//ON_REGISTERED_MESSAGE(AFX_WM_DRAW2D, &CShowWnd::OnDraw2d)
 	ON_MESSAGE(WM_USER_DRAW_WORLD, &CShowWnd::OnUserDrawWorld)
 	ON_MESSAGE(WM_USER_DRAW_WORLD2, &CShowWnd::OnUserDrawWorld2)
 END_MESSAGE_MAP()
@@ -60,6 +64,28 @@ void CShowWnd::OnLButtonDown(UINT nFlags, CPoint point)
 {
 	if (!bRunning)
 	{
+		CRenderTarget* prt = GetRenderTarget();
+		CRandomGen rg;
+		static int nd1{ 40 }, nd2{ 3 };
+		//nd1 = 40, nd2 = 8;
+		CDotBmp db1(nd1, RandomNormalColor(rg), prt, false, EDotType::dtBlackHole), db2(nd2++, RandomAntiGColor(rg), prt, false, EDotType::dtBlackHole);
+		CD2DRectF rect;
+		prt->BeginDraw();
+		rect.left = float(point.x) - float(nd1) / 2.f;
+		rect.right = rect.left + float(nd1);
+		rect.top = float(point.y) - float(nd1) / 2.f;
+		rect.bottom = rect.top + float(nd1);
+		//prt->DrawBitmap(db1, rect);
+		rect.left = float(point.x) - float(nd2) / 2.f;
+		rect.right = rect.left + float(nd2);
+		rect.top = float(point.y) - float(nd2) / 2.f;
+		rect.bottom = rect.top + float(nd2);
+		prt->DrawBitmap(db2, rect);
+		prt->EndDraw();
+	}
+	/*
+	if (!bRunning)
+	{
 		InitWorldRaw(1, 100, 100);
 		pWorld->rdRawData.faPosX[0] = point.x;
 		pWorld->rdRawData.faPosY[0] = point.y;
@@ -79,6 +105,7 @@ void CShowWnd::OnLButtonDown(UINT nFlags, CPoint point)
 			::Sleep(15);
 		}
 	}
+	*/
 	/*
 	if (nCurrBmp >= 0 && nCurrBmp < (int)dbpvBmps.size())
 	{
@@ -102,6 +129,7 @@ DotBmpPointer CShowWnd::GenDot(int ns, COLORREF clr, bool bLoose, EDotType dt)
 
 
 //----------------------------------------------------------------------------------------------------------------------
+/*
 bool CShowWnd::Generate(int ns, COLORREF clr)
 {
 	bool bRes = false, bFind = false;
@@ -121,9 +149,10 @@ bool CShowWnd::Generate(int ns, COLORREF clr)
 	}
 	return bRes;
 }
-
+*/
 
 //----------------------------------------------------------------------------------------------------------------------
+/*
 afx_msg LRESULT CShowWnd::OnDraw2d(WPARAM wParam, LPARAM lParam)
 {
 	if (bRunning)
@@ -140,6 +169,7 @@ afx_msg LRESULT CShowWnd::OnDraw2d(WPARAM wParam, LPARAM lParam)
 	}
 	return 0;
 }
+*/
 
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -181,8 +211,8 @@ afx_msg LRESULT CShowWnd::OnUserDrawWorld(WPARAM wParam, LPARAM lParam)
 //----------------------------------------------------------------------------------------------------------------------
 afx_msg LRESULT CShowWnd::OnUserDrawWorld2(WPARAM wParam, LPARAM lParam)
 {
-//	static bool bo = false;
-
+	static int nOSDChange{ 3000 }, nOSDPos{ 0 };
+	static int nOSDLeft{ 4 }, nOSDTop{ 4 };
 
 	CHwndRenderTarget* pRender = GetRenderTarget();
 	if (!pRender)
@@ -195,12 +225,12 @@ afx_msg LRESULT CShowWnd::OnUserDrawWorld2(WPARAM wParam, LPARAM lParam)
 		SRawData& rrd = pWorld->rdRawData;
 		
 		CD2DRectF rect;
-		for (int i = 0; i < nAmount; i++)
+		for (int i = 0; i < rrd.nAmount; i++)
 		{
-			rect.left = rrd.faPosX[i] - rrd.naRadius[i];
-			rect.top = rrd.faPosY[i] - rrd.naRadius[i];
-			rect.right = rrd.faPosX[i] + rrd.naRadius[i] + 1.f;
-			rect.bottom = rrd.faPosY[i] + rrd.naRadius[i] + 1.f;
+			rect.left = rrd.faPosX[i] - rrd.faRadius[i];
+			rect.top = rrd.faPosY[i] - rrd.faRadius[i];
+			rect.right = rrd.faPosX[i] + rrd.faRadius[i];
+			rect.bottom = rrd.faPosY[i] + rrd.faRadius[i];
 			if (rrd.pEffects[i])
 			{
 				CEffect* pe = reinterpret_cast<CEffect*>(rrd.pEffects[i]);
@@ -226,18 +256,33 @@ afx_msg LRESULT CShowWnd::OnUserDrawWorld2(WPARAM wParam, LPARAM lParam)
 			else
 				pRender->DrawBitmap(*bmpBodys[i], rect);
 		}
-		rect.left = rect.top = 4.f;
-		rect.right = 300.f;
-		rect.bottom = 100.f;
-		CD2DSolidColorBrush brush(pRender, D2D1::ColorF::YellowGreen);
-		pRender->DrawText(SThreadParams::strStat, rect, &brush);
-
-		//if (!bo)
-		//{
-		//	bo = true;
-		//	rrd.Output(L"mt1.txt", nAmount);
-		//}
-
+		if (bOSD)
+		{
+			nOSDPos++;
+			if (nOSDPos > nOSDChange)
+			{
+				nOSDPos = 0;
+				nOSDChange = rgRandom.GenInt(7200, 1000);
+				nOSDLeft += (rgRandom.GenBool() ? 1 : -1);
+				nOSDTop += (rgRandom.GenBool() ? 1 : -1);
+				if (nOSDLeft < 2)
+					nOSDLeft = 2;
+				if (nOSDLeft > 8)
+					nOSDLeft = 8;
+				if (nOSDTop < 2)
+					nOSDTop = 2;
+				if (nOSDTop > 8)
+					nOSDTop = 8;
+				clrOSD1 = clrOSD2;
+				clrOSD2 = RandomColor(rgRandom);
+			}
+			rect.left = (float)nOSDLeft;
+			rect.top = (float)nOSDTop;
+			rect.right = 400.f;
+			rect.bottom = 200.f;
+			CD2DSolidColorBrush brush(pRender, D2D1::ColorF(InterpolateColor(clrOSD1, clrOSD2, nOSDPos, nOSDChange)));
+			pRender->DrawText(SThreadParams::strStat, rect, &brush);
+		}
 	}
 	pRender->EndDraw();
 	
@@ -348,6 +393,28 @@ COLORREF CShowWnd::RandomAntiGColor(CRandomGen& rg)
 		break;
 	}
 	return clr;
+}
+
+
+//----------------------------------------------------------------------------------------------------------------------
+COLORREF CShowWnd::MakeLightColor(COLORREF clr, float thrus)
+{
+	float h, s, v;
+	CUtil::CColorUtil::ToHSV(clr, h, s, v);
+	if (v < thrus)
+		v = thrus;
+	return CUtil::CColorUtil::FromHSV(h, s, v);
+}
+
+
+//----------------------------------------------------------------------------------------------------------------------
+COLORREF CShowWnd::InterpolateColor(COLORREF clr1, COLORREF clr2, int nPos, int nSpan)
+{
+	int r1 = GetRValue(clr1), g1 = GetGValue(clr1), b1 = GetBValue(clr1);
+	int r2 = GetRValue(clr2), g2 = GetGValue(clr2), b2 = GetBValue(clr2);
+	float f = float(nPos) / float(nSpan);
+	int r = r1 + int(float(r2 - r1) * f), g = g1 + int(float(g2 - g1) * f), b = b1 + int(float(b2 - b1) * f);
+	return RGB(r, g, b);
 }
 
 
@@ -495,29 +562,33 @@ void CShowWnd::InitWorld(int nG, int nc, int ngs, int nbh, int nc2, int ngs2, in
 //----------------------------------------------------------------------------------------------------------------------
 void CShowWnd::InitWorldRaw(int ntc, int nG, int nc, int ngs, int nbh, int nc2, int ngs2, int nbh2)
 {
-	static int nDias[6] = { 5, 7, 9, 11, 13, 15 };
-	static int nDias_bh[4] = { 9, 11, 13, 15 };
-	static int nms[7] = { 2, 4, 8, 16, 32, 64, 128 };
-	static float fef[6] = { 0.90f, 0.88f, 0.86f, 0.84f, 0.82f, 0.80f };	// elastic factor
-	static float fef2[6] = { 0.80f, 0.78f, 0.76f, 0.74f, 0.72f, 0.70f };	// elastic factor for loose star
-	static float fef_bh[4] = { 0.68f, 0.66f, 0.64f, 0.62f }; // elastic factor for blackhole
-	static float fcrf[6] = { 1.0f, 0.98f, 0.96f, 0.94f, 0.92f, 0.90f }; // core radius factor
-	static float fcrf2[6] = { 0.96f, 0.94f, 0.92f, 0.90f, 0.88f, 0.86f }; // core radius factor for loose star
-	static float fcrf_bh[4] = { 1.0f, 0.98f, 0.96f, 0.94f };	// core radius factor for black hole
-	float fef_gs = 0.68f;	// elastic factor for giant star
-	float fcrf_gs = 0.84f;	// core radius factor for giant star
+//	static int nDias[6] = { 5, 7, 9, 11, 13, 15 }; // normal star diameters
+//	static int nDias_bh[4] = { 9, 11, 13, 15 };    // blackhole diameters
+	int nDiaMax_Comm{ 16 }, nDiaMin_Comm{ 5 };	// common star diameters: 5 - 15, total number 11
+	int nDiaMax_Giant{ 34 }, nDiaMin_Giant{ 23 };	// giant star diameters: 23 - 33, total number 11
+	int nDiaMax_BH{ 16 }, nDiaMin_BH{ 9 };	// blackhole diameters: 9 - 15, total number 7
+	static int nms[12] = { 2, 4, 7, 11, 16, 23, 32, 43, 57, 74, 94, 118 };  // normal star mass
+	static int ngsms[12] = { 418, 485, 559, 641, 732, 831, 940, 1058, 1187, 1326, 1477, 1640 };  // giant star mass
+	static int nbhms[8] = { 302, 512, 824, 1274, 1901, 2754, 3888, 5369  };	// blackhole mass
+	//static float fef[6] = { 0.90f, 0.88f, 0.86f, 0.84f, 0.82f, 0.80f };	// elastic factor
+	//static float fef2[6] = { 0.80f, 0.78f, 0.76f, 0.74f, 0.72f, 0.70f };	// elastic factor for loose star
+	//static float fef_bh[4] = { 0.68f, 0.66f, 0.64f, 0.62f }; // elastic factor for blackhole
+	//static float fcrf[6] = { 1.0f, 0.98f, 0.96f, 0.94f, 0.92f, 0.90f }; // core radius factor
+	//static float fcrf2[6] = { 0.96f, 0.94f, 0.92f, 0.90f, 0.88f, 0.86f }; // core radius factor for loose star
+	//static float fcrf_bh[4] = { 1.0f, 0.98f, 0.96f, 0.94f };	// core radius factor for black hole
+	float fef_comm = 0.85f, fef_gs = 0.7f, fef_bh = 0.75f, fef_loose = 0.8f;	// elastic factor
+	float fcrf_comm = 0.95f, fcrf_gs = 0.85f, fcrf_bh = 0.95f, fcrf_loose = 0.9f;	// core radius factor for giant star
 	CRandomGen rg;
 	CRect rect;
-	int n, nw, nh;
+	int nw, nh;
 	float fG = float(nG);
 
 	SRawData& rrd = pWorld->rdRawData;
-	nAmount = nc + ngs + nbh + nc2 + ngs2 + nbh2;
-	rrd.Prepare(nAmount, ntc);
+	rrd.Prepare(nc, ngs, nbh, nc2, ngs2, nbh2, ntc);
 	GetClientRect(&rect);
 	nw = rect.Width();
 	nh = rect.Height();
-	pWorld->Init(float(nG), nw, nh, nAmount, m_hWnd);
+	pWorld->Init(nw, nh, rrd.nAmount, m_hWnd);
 	bmpBodys.clear();
 	int nCount = 0;
 	COLORREF clr;
@@ -525,10 +596,11 @@ void CShowWnd::InitWorldRaw(int ntc, int nG, int nc, int ngs, int nbh, int nc2, 
 	for (int i = 0; i < ngs; i++)	// normal giant star
 	{
 		rrd.eaStarType[i] = EStarType::stGiant;
-		int nr = rg.GenInt(20, 15);
-		rrd.naRadius[i] = nr;
-		rrd.faCoreRadius[i] = float(nr) * fcrf_gs;
-		rrd.faGm[i] = fG * float(nr * nr * nr);
+		int nd = rg.GenInt(nDiaMax_Giant, nDiaMin_Giant);   // giant star diameters: 23 - 33
+		rrd.faRadius[i] = float(nd) / 2.f;
+		rrd.faCoreRadius[i] = rrd.faRadius[i] * fcrf_gs;
+		rrd.faRadiusFactor[i] = 1.f;
+		rrd.faGm[i] = fG * float(rg.GenInt(ngsms[nd - nDiaMin_Giant + 1], ngsms[nd - nDiaMin_Giant]));
 		rrd.naLooseLevel[i] = 1;	// giant star not loose, normal hard
 		rrd.faPosX[i] = (float)rg.GenInt(nw - nw / 4, nw / 4);
 		rrd.faPosY[i] = (float)rg.GenInt(nh - nh / 4, nh / 4);
@@ -538,16 +610,17 @@ void CShowWnd::InitWorldRaw(int ntc, int nG, int nc, int ngs, int nbh, int nc2, 
 		rrd.faAntiG[i] = 1.0f;
 		clr = RandomNormalColor(rg);
 		rrd.caColor[i] = clr;
-		bmpBodys.push_back(GenDot(nr * 2 + 1, clr, false));
+		bmpBodys.push_back(GenDot(nd, clr, false));
 	}
 	nCount += ngs;
 	for (int i = 0; i < ngs2; i++)	// anti-G giant star
 	{
 		rrd.eaStarType[i + nCount] = EStarType::stAnti_Giant;
-		int nr = rg.GenInt(20, 15);
-		rrd.naRadius[i + nCount] = nr;
-		rrd.faCoreRadius[i + nCount] = float(nr) * fcrf_gs;
-		rrd.faGm[i + nCount] = fG * float(nr * nr * nr);
+		int nd = rg.GenInt(nDiaMax_Giant, nDiaMin_Giant);
+		rrd.faRadius[i + nCount] = float(nd) / 2.f;
+		rrd.faCoreRadius[i + nCount] = rrd.faRadius[i + nCount] * fcrf_gs;
+		rrd.faRadiusFactor[i + nCount] = 1.f;
+		rrd.faGm[i + nCount] = fG * float(rg.GenInt(ngsms[nd - nDiaMin_Giant + 1], ngsms[nd - nDiaMin_Giant]));
 		rrd.naLooseLevel[i + nCount] = 1;
 		rrd.faPosX[i + nCount] = (float)rg.GenInt(nw - nw / 4, nw / 4);
 		rrd.faPosY[i + nCount] = (float)rg.GenInt(nh - nh / 4, nh / 4);
@@ -557,25 +630,26 @@ void CShowWnd::InitWorldRaw(int ntc, int nG, int nc, int ngs, int nbh, int nc2, 
 		rrd.faAntiG[i + nCount] = -1.0f;
 		clr = RandomAntiGColor(rg);
 		rrd.caColor[i + nCount] = clr;
-		bmpBodys.push_back(GenDot(nr * 2 + 1, clr, false));
+		bmpBodys.push_back(GenDot(nd, clr, false));
 	}
 	nCount += ngs2;
 	for (int i = 0; i < nbh; i++)	// normal black hole
 	{
 		rrd.eaStarType[i + nCount] = EStarType::stBlackhole;
-		n = rg.GenInt(4);
-		int nd = nDias_bh[n];
-		rrd.naRadius[i + nCount] = nd / 2;
-		rrd.faCoreRadius[i + nCount] = float(nd / 2) * fcrf_bh[n];
-		rrd.faGm[i + nCount] = fG * float(nd * nd * nd * nd / 2);
+		int nd = rg.GenInt(nDiaMax_BH, nDiaMin_BH);
+		rrd.faRadius[i + nCount] = float(nd) / 2.f;
+		rrd.faCoreRadius[i + nCount] = rrd.faRadius[i + nCount] * fcrf_bh;
+		rrd.faRadiusFactor[i + nCount] = 0.01f;
+		rrd.faGm[i + nCount] = fG * float(rg.GenInt(nbhms[nd - nDiaMin_BH + 1], nbhms[nd - nDiaMin_BH]));
 		rrd.naLooseLevel[i + nCount] = 2;	// black hole is most hard
 		rrd.faPosX[i + nCount] = (float)rg.GenInt(nw - nw / 4, nw / 4);
 		rrd.faPosY[i + nCount] = (float)rg.GenInt(nh - nh / 4, nh / 4);
 		rrd.faVelocityX[i + nCount] = (float)rg.GenInt(10, -10);
 		rrd.faVelocityY[i + nCount] = (float)rg.GenInt(10, -10);
-		rrd.faElasticFactor[i + nCount] = fef_bh[n];
+		rrd.faElasticFactor[i + nCount] = fef_bh;
 		rrd.faAntiG[i + nCount] = 1.0f;
 		clr = RandomNormalColor(rg);
+		clr = MakeLightColor(clr, 1.f);
 		rrd.caColor[i + nCount] = clr;
 		bmpBodys.push_back(GenDot(nd, clr, true, EDotType::dtBlackHole));
 	}
@@ -583,19 +657,20 @@ void CShowWnd::InitWorldRaw(int ntc, int nG, int nc, int ngs, int nbh, int nc2, 
 	for (int i = 0; i < nbh2; i++)	// anti-G black hole
 	{
 		rrd.eaStarType[i + nCount] = EStarType::stAnti_Blackhole;
-		n = rg.GenInt(4);
-		int nd = nDias_bh[n];
-		rrd.naRadius[i + nCount] = nd / 2;
-		rrd.faCoreRadius[i + nCount] = float(nd / 2) * fcrf_bh[n];
-		rrd.faGm[i + nCount] = fG * float(nd * nd * nd * nd / 2);
+		int nd = rg.GenInt(nDiaMax_BH, nDiaMin_BH);
+		rrd.faRadius[i + nCount] = float(nd) / 2.f;
+		rrd.faCoreRadius[i + nCount] = rrd.faRadius[i + nCount] * fcrf_bh;
+		rrd.faRadiusFactor[i + nCount] = 0.01f;
+		rrd.faGm[i + nCount] = fG * float(rg.GenInt(nbhms[nd - nDiaMin_BH + 1], nbhms[nd - nDiaMin_BH]));
 		rrd.naLooseLevel[i + nCount] = 2;
 		rrd.faPosX[i + nCount] = (float)rg.GenInt(nw - nw / 4, nw / 4);
 		rrd.faPosY[i + nCount] = (float)rg.GenInt(nh - nh / 4, nh / 4);
 		rrd.faVelocityX[i + nCount] = (float)rg.GenInt(10, -10);
 		rrd.faVelocityY[i + nCount] = (float)rg.GenInt(10, -10);
-		rrd.faElasticFactor[i + nCount] = fef_bh[n];
+		rrd.faElasticFactor[i + nCount] = fef_bh;
 		rrd.faAntiG[i + nCount] = -1.0f;
 		clr = RandomAntiGColor(rg);
+		clr = MakeLightColor(clr, 1.f);
 		rrd.caColor[i + nCount] = clr;
 		bmpBodys.push_back(GenDot(nd, clr, true, EDotType::dtBlackHole));
 	}
@@ -604,13 +679,14 @@ void CShowWnd::InitWorldRaw(int ntc, int nG, int nc, int ngs, int nbh, int nc2, 
 	{
 		rrd.eaStarType[i + nCount] = EStarType::stNormal;
 		bool bLoose = rg.GenBool();
-		n = rg.GenInt(6);
-		rrd.naRadius[i + nCount] = nDias[n] / 2;
+		int nd = rg.GenInt(nDiaMax_Comm, nDiaMin_Comm);
+		rrd.faRadius[i + nCount] = float(nd) / 2.f;
 		if (bLoose)
-			rrd.faCoreRadius[i + nCount] = float(rrd.naRadius[i + nCount]) * fcrf2[n];
+			rrd.faCoreRadius[i + nCount] = float(rrd.faRadius[i + nCount]) * fcrf_loose;
 		else
-			rrd.faCoreRadius[i + nCount] = float(rrd.naRadius[i + nCount]) * fcrf[n];
-		rrd.faGm[i + nCount] = fG * float(rg.GenInt(nms[n + 1], nms[n]));
+			rrd.faCoreRadius[i + nCount] = float(rrd.faRadius[i + nCount]) * fcrf_comm;
+		rrd.faRadiusFactor[i + nCount] = 1.f;
+		rrd.faGm[i + nCount] = fG * float(rg.GenInt(nms[nd - nDiaMin_Comm + 1], nms[nd -  nDiaMin_Comm]));
 		rrd.naLooseLevel[i + nCount] = bLoose? 0 : 1;
 		if (bLoose)
 			rrd.faGm[i + nCount] = rrd.faGm[i + nCount] / 2.f;
@@ -619,26 +695,27 @@ void CShowWnd::InitWorldRaw(int ntc, int nG, int nc, int ngs, int nbh, int nc2, 
 		rrd.faVelocityX[i + nCount] = (float)rg.GenInt(20, -20);
 		rrd.faVelocityY[i + nCount] = (float)rg.GenInt(20, -20);
 		if (bLoose)
-			rrd.faElasticFactor[i + nCount] = fef2[n];
+			rrd.faElasticFactor[i + nCount] = fef_loose;
 		else
-			rrd.faElasticFactor[i + nCount] = fef[n];
+			rrd.faElasticFactor[i + nCount] = fef_comm;
 		rrd.faAntiG[i + nCount] = 1.0f;
 		clr = RandomNormalColor(rg);
 		rrd.caColor[i + nCount] = clr;
-		bmpBodys.push_back(GenDot(nDias[n], clr, bLoose));
+		bmpBodys.push_back(GenDot(nd, clr, bLoose));
 	}
 	nCount += nc;
 	for (int i = 0; i < nc2; i++)	// anti-G common star
 	{
 		rrd.eaStarType[i + nCount] = EStarType::stAnti_Normal;
 		bool bLoose = rg.GenBool();
-		n = rg.GenInt(6);
-		rrd.naRadius[i + nCount] = nDias[n] / 2;
+		int nd = rg.GenInt(nDiaMax_Comm, nDiaMin_Comm);
+		rrd.faRadius[i + nCount] = float(nd) / 2.f;
 		if (bLoose)
-			rrd.faCoreRadius[i + nCount] = float(rrd.naRadius[i + nCount]) * fcrf2[n];
+			rrd.faCoreRadius[i + nCount] = float(rrd.faRadius[i + nCount]) * fcrf_loose;
 		else
-			rrd.faCoreRadius[i + nCount] = float(rrd.naRadius[i + nCount]) * fcrf[n];
-		rrd.faGm[i + nCount] = fG * float(rg.GenInt(nms[n + 1], nms[n]));
+			rrd.faCoreRadius[i + nCount] = float(rrd.faRadius[i + nCount]) * fcrf_comm;
+		rrd.faRadiusFactor[i + nCount] = 1.f;
+		rrd.faGm[i + nCount] = fG * float(rg.GenInt(nms[nd - nDiaMin_Comm + 1], nms[nd - nDiaMin_Comm]));
 		rrd.naLooseLevel[i + nCount] = bLoose ? 0 : 1;
 		if (bLoose)
 			rrd.faGm[i + nCount] = rrd.faGm[i + nCount] / 2;
@@ -647,13 +724,13 @@ void CShowWnd::InitWorldRaw(int ntc, int nG, int nc, int ngs, int nbh, int nc2, 
 		rrd.faVelocityX[i + nCount] = (float)rg.GenInt(20, -20);
 		rrd.faVelocityY[i + nCount] = (float)rg.GenInt(20, -20);
 		if (bLoose)
-			rrd.faElasticFactor[i + nCount] = fef2[n];
+			rrd.faElasticFactor[i + nCount] = fef_loose;
 		else
-			rrd.faElasticFactor[i + nCount] = fef[n];
+			rrd.faElasticFactor[i + nCount] = fef_comm;
 		rrd.faAntiG[i + nCount] = -1.0f;
 		clr = RandomAntiGColor(rg);
 		rrd.caColor[i + nCount] = clr;
-		bmpBodys.push_back(GenDot(nDias[n], clr, bLoose));
+		bmpBodys.push_back(GenDot(nd, clr, bLoose));
 	}
 
 //	rrd.Output(L"mt0.txt", nAmount);
@@ -714,7 +791,7 @@ void CShowWnd::RunMultiThread(int nThreadCount)
 		CRect rect;
 		GetClientRect(&rect);
 		SThreadParams::Init(nThreadCount, &pWorld->rdRawData, rect);
-		for (int i = 1; i < 4; i++)
+		for (int i = 1; i < nThreadCount; i++)
 		{
 			pWorld->tpThreadParams[i].nIndex = i;
 			::AfxBeginThread(WorldRunFunctionWorker, &(pWorld->tpThreadParams[i]));
@@ -757,7 +834,7 @@ UINT __cdecl WorldRunFunctionWorker(LPVOID pParam)
 		if (SThreadParams::bStop)
 			break;
 		::WaitForSingleObject(SThreadParams::hStarts[ni - 1], INFINITE);
-		(pRawData->*pPassFun)(ni, nJobFrom, nJobTo, SThreadParams::fDeltaTime);
+		(pRawData->*pPassFun)(ni, nJobFrom, nJobTo, /*SThreadParams::fDeltaTime*/SThreadParams::fFixedDeltaTime);
 		//pRawData->PassWorker(ni, nJobFrom, nJobTo, SThreadParams::fDeltaTime);
 		::SetEvent(SThreadParams::hEnds[ni - 1]);
 	}
@@ -796,16 +873,17 @@ UINT __cdecl WorldRunFunctionControl(LPVOID pParam)
 			break;
 		}
 		SThreadParams::fDeltaTime = (float)tmPass.GetPassed(true);
+		if (SThreadParams::fDeltaTime > 0.5f || SThreadParams::fDeltaTime < 0.0f)
+			SThreadParams::fDeltaTime = 0.5f;
 		tmRun.Start();
 		SThreadParams::SetStartCaculation();
-		(pRawData->*pPassFun)(0, nJobFrom, nJobTo, SThreadParams::fDeltaTime);
+		(pRawData->*pPassFun)(0, nJobFrom, nJobTo, /*SThreadParams::fDeltaTime*/SThreadParams::fFixedDeltaTime);
 		//pRawData->PassWorker(0, nJobFrom, nJobTo, SThreadParams::fDeltaTime);
 		SThreadParams::WaitEndCaculation();
 		fCT = (float)tmRun.GetPassed();
 		::WaitForSingleObject(SThreadParams::hRenderEnd, INFINITE);
 		tmRun.Start();
-		pw->ComboOutput(true, SThreadParams::fDeltaTime, 
-			SThreadParams::rectConstraint);
+		pw->ComboOutput(true, /*SThreadParams::fDeltaTime*/SThreadParams::fFixedDeltaTime, SThreadParams::rectConstraint);
 		fCT += (float)tmRun.GetPassed();
 		::SetEvent(SThreadParams::hRenderStart);
 /*
@@ -818,10 +896,12 @@ UINT __cdecl WorldRunFunctionControl(LPVOID pParam)
 */
 		fRT = SThreadParams::fRenderTime;
 		fFT = SThreadParams::fDeltaTime;
+/*
 		nms = int(fFT * 1000. + .5);
 		nms = 16 - nms;
 		if (nms > 1)
 			::Sleep(nms);
+*/
 		fCTT += fCT;
 		fRTT += fRT;
 		fFTT += fFT;

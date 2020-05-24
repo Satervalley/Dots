@@ -13,6 +13,8 @@ HANDLE SThreadParams::hStarts[MAX_THREADS_NUMBER - 1]{ nullptr };
 HANDLE SThreadParams::hEnds[MAX_THREADS_NUMBER - 1]{ nullptr };
 HANDLE SThreadParams::hRenderStart{ nullptr }, SThreadParams::hRenderEnd{ nullptr };
 float SThreadParams::fDeltaTime{ 0.f };
+float SThreadParams::fFixedDeltaTime{ 0.015f };
+float SThreadParams::fDivergenceFactor{ 0.995f };
 float SThreadParams::fRenderTime{ 0.f };
 bool SThreadParams::bUsingSIMD{ false };
 

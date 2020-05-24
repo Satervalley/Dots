@@ -33,8 +33,8 @@ protected:
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
 	afx_msg void OnClickedButtonColor();
-	afx_msg void OnSelchangeComboDots();
-	afx_msg void OnClickedButtonGenerate();
+	//afx_msg void OnSelchangeComboDots();
+	//afx_msg void OnClickedButtonGenerate();
 	afx_msg LRESULT OnUserSelectColor(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnClickedButtonRun();
 	DECLARE_MESSAGE_MAP()

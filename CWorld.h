@@ -13,6 +13,7 @@
 #include <mmintrin.h>
 
 #define MAX_AMOUNT 10240
+#define MAX_THREADS_NUMBER 8
 
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -81,7 +82,7 @@ public:
             ny = ny >= szSize.cy ? szSize.cy - 1 : ny;
             pCells[ny * szSize.cx + nx]->Put(i, rd.faPosX[i], rd.faPosY[i], rd.faGm[i], rd.faAntiG[i] < 0.f);
         }
-        nCalculateCount = 0;
+        //nCalculateCount = 0;
         // caculate dv based on cells
         int nctc = szSize.cx * szSize.cy;
         bool bFar;
@@ -91,20 +92,20 @@ public:
         {
             rd.PassCellInternal(*(pCells[i]), fDeltaTime);
 
-            int n = pCells[i]->viIndexes.size();
-            nCalculateCount += (n * (n - 1) / 2);
+            //int n = pCells[i]->viIndexes.size();
+            //nCalculateCount += (n * (n - 1) / 2);
 
             for (int j = i + 1; j < nctc; j++)
             {
                 bFar = pCells[i]->v2Center.DistanceP2(pCells[j]->v2Center) > fThresHold;
                 rd.PassInterCells(*(pCells[i]), *(pCells[j]), fDeltaTime, bFar);
 
-                if (bFar)
-                {
-                    nCalculateCount += (pCells[i]->viIndexes.size() + pCells[j]->viIndexes.size());
-                }
-                else
-                    nCalculateCount += (pCells[i]->viIndexes.size() * pCells[j]->viIndexes.size());
+                //if (bFar)
+                //{
+                //    nCalculateCount += (pCells[i]->viIndexes.size() + pCells[j]->viIndexes.size());
+                //}
+                //else
+                //    nCalculateCount += (pCells[i]->viIndexes.size() * pCells[j]->viIndexes.size());
 
             }
         }
@@ -129,9 +130,6 @@ protected:
 
 
 //----------------------------------------------------------------------------------------------------------------------
-#define MAX_THREADS_NUMBER 8
-
-//----------------------------------------------------------------------------------------------------------------------
 struct SThreadParams
 {
     static int nWorkerCount;  // total should +1, there is a control thread
@@ -142,6 +140,8 @@ struct SThreadParams
     static HANDLE hEnds[MAX_THREADS_NUMBER - 1];
     static HANDLE hRenderStart, hRenderEnd;
     static float fDeltaTime;
+    static float fFixedDeltaTime;
+    static float fDivergenceFactor;
     static float fRenderTime;
     static bool bUsingSIMD;
 
@@ -252,6 +252,12 @@ struct SThreadParams
         return res;
     }
 
+
+    static void SetStepLength(DWORD dw)
+    {
+        dw = dw % 5u;
+        fFixedDeltaTime = float(dw * 5u + 5u) / 1000.f;
+    }
 };
 
 
@@ -311,11 +317,10 @@ public:
 
     CString strStat{ _T("FPS: Frames: \nCaculate Time: \nRender Time: ") };
 
-    void Init(float fG, int nw, int nh, int nb, HWND hw = nullptr)
+    void Init(int nw, int nh, int nb, HWND hw = nullptr)
     {
         ASSERT(nb <= MAX_AMOUNT);
 
-        G = fG;
         rectArea.left = rectArea.top = 0;
         rectArea.right = nw;
         rectArea.bottom = nh;
@@ -324,7 +329,9 @@ public:
         hwndTarget = hw;
 
         emEffectMan.Release();
-        nExplosionCount = rgRandom.GenInt(6144, 10);
+        fExpLeftSecond = 0.f;
+        if (bGenExp)
+            fExpLeftSecond = float(rgRandom.GenInt(nExpGenTop, nExpGenBottom));
     }
 
 
@@ -498,7 +505,7 @@ public:
     {
         CHiTimer tmRun, tmPass;
         tmPass.Start();
-        int nms;
+//        int nms;
         int nStat = 0;
         float fCT = 0.f, fFT = 0.f;
         float fCTT = 0.f, fRTT = 0.f, fFTT = 0.f;
@@ -509,24 +516,31 @@ public:
             pPassFunc = &CWorld::Pass2_Grid;
         else if (SThreadParams::bUsingSIMD)
             pPassFunc = &CWorld::Pass2_SIMD;
+        float deltaTime;
         for (;;)
         {
             tmRun.Start();
 
             if (ShouldStop())
                 break;
-            (this->*pPassFunc)(float(tmPass.GetPassed(true)), SThreadParams::rectConstraint, fCT);
+            deltaTime = float(tmPass.GetPassed(true));
+            if (deltaTime > 0.5f || deltaTime < 0.0f)
+                deltaTime = 0.5f;
+            (this->*pPassFunc)(/*deltaTime*/SThreadParams::fFixedDeltaTime, SThreadParams::rectConstraint, fCT);
+/*
             nms = int(tmRun.GetPassed() * 1000. + .5);
             nms = nFrameTimeMax - nms;
             if (nms > 1)
                 ::Sleep(nms);
+*/
             fFT = (float)tmRun.GetPassed();
             fCTT += fCT;
             fRTT += SThreadParams::fRenderTime;
             fFTT += fFT;
             nStat++;
-            if (fFTT > 1.f)
+            if (fFTT > 0.2f)
             {
+                static SYSTEMTIME st;
                 ullFrame += nStat;
                 float fsr = float(nStat);
                 nStat = 0;
@@ -534,7 +548,11 @@ public:
                 int nCalTime = int(fCTT / fsr * 1000.f + .5f);
                 int nRenTime = int(fRTT / fsr * 1000.f + .5f);
 //                strStat.Format(_T("FPS: %d    Frames: %llu\nCaculate Time: %dms\nRender Time: %dms"), nFPS, ullFrame, nCalTime, nRenTime);
-                SThreadParams::strStat.Format(_T("FPS: %d    Frames: %llu\nCaculate Time: %dms\nRender Time: %dms\nNext explosion: %d"), nFPS, ullFrame, nCalTime, nRenTime, nExplosionCount);
+//                SThreadParams::strStat.Format(_T("FPS: %d    Frames: %llu\nCaculate Time: %dms\nRender Time: %dms\nNext explosion: %d"), nFPS, ullFrame, nCalTime, nRenTime, nExplosionCount);
+                ::GetLocalTime(&st);
+                SThreadParams::strStat.Format(
+                    _T("Celestial bodies: %d\nTime: %02d:%02d:%02d    FPS: %d\nCaculate: %dms    Render: %dms\nNext explosion: %.1f"), 
+                    nAmount, st.wHour, st.wMinute, st.wSecond, nFPS, nCalTime, nRenTime, fExpLeftSecond);
                 fCTT = fRTT = fFTT = 0.f;
             }
         }
@@ -568,22 +586,24 @@ public:
             }
             fMeanVX = rdRawData.faVelocityX[i];
             fMeanVY = rdRawData.faVelocityY[i];
-            fMeanVX += fdvx * .995f;
-            fMeanVY += fdvy * .995f;
+            fMeanVX += fdvx * SThreadParams::fDivergenceFactor;
+            fMeanVY += fdvy * SThreadParams::fDivergenceFactor;
             rdRawData.faVelocityX[i] += fdvx;
             rdRawData.faVelocityY[i] += fdvy;
-
 
             rdRawData.faPosX[i] += fMeanVX * fdt;
             rdRawData.faPosY[i] += fMeanVY * fdt;
 
+            //rdRawData.faPosX[i] += rdRawData.faVelocityX[i] * fdt;
+            //rdRawData.faPosY[i] += rdRawData.faVelocityY[i] * fdt;
+
             // reflecting
             if (rdRawData.bReflection)
             {
-                fli = float(rect.left + rdRawData.naRadius[i]);
-                fri = float(rect.right - rdRawData.naRadius[i]);
-                fti = float(rect.top + rdRawData.naRadius[i]);
-                fbi = float(rect.bottom - rdRawData.naRadius[i]);
+                fli = float(rect.left) + rdRawData.faRadius[i];
+                fri = float(rect.right) - rdRawData.faRadius[i];
+                fti = float(rect.top) + rdRawData.faRadius[i];
+                fbi = float(rect.bottom) - rdRawData.faRadius[i];
                 if (rdRawData.faPosX[i] < fli)
                 {
                     rdRawData.faPosX[i] = fli + fli - rdRawData.faPosX[i];
@@ -618,77 +638,118 @@ public:
         grid.Init(rect, 100, 5);
     }
 
-    int ExplosionCount(void) const
+    float ExplosionLeftSecond(void) const
     {
-        return nExplosionCount;
+        return fExpLeftSecond;
     }
 
+
+    void SetEventFrequency(int nTF, int nEF)
+    {
+        int ntfs[4] = { 1024, 1024, 2048, 4096 };
+        int nefs[4] = { 50, 50, 100, 200 };
+        nTF = nTF % 4;
+        nEF = nEF % 4;
+        if (nTF == 0)
+            bGenTrail = false;
+        else
+        {
+            bGenTrail = true;
+            nTrailGenTop = ntfs[nTF];
+        }
+        if (nEF == 0)
+        {
+            fExpLeftSecond = 0.f;
+            bGenExp = false;
+        }
+        else
+        {
+            bGenExp = true;
+            nExpGenTop = nefs[nEF];
+            fExpLeftSecond = (float)rgRandom.GenInt(nExpGenTop, nExpGenBottom);
+        }
+    }
 protected:
     CRect rectArea;
     int nAmount;
-    float G;
     //SBody bodys[MAX_AMOUNT];
     HWND hwndTarget{ nullptr };
+    //float fFixedDeltaTime{ SThreadParams::fFixedDeltaTime }; // fixed delta time
     const int nFrameTimeMax{ 16 };
     bool bGrid{ false };
     CRandomGen rgRandom;
     CEffectManager emEffectMan;
-    int nExplosionCount;
+    //int nExplosionCount;
+    float fExpLeftSecond;
+    bool bGenTrail{ true }, bGenExp{ true };
+    int nTrailGenTop{ 1024 };  // frames
+    int nExpGenTop{ 100 }, nExpGenBottom{ 10 };    // seconds
 
 
-    bool GenEffect(void)
+    int GenEffect(void)
     {
-        bool bRes = false;
+        static CHiTimer timer(true);
+        int n = 0;
         // generate trail effects
-        if (rgRandom.Probility(1, 1024u << emEffectMan.Size()))
+        if (bGenTrail)
         {
-            int ni = rgRandom.GenInt(nAmount);
-            if (!rdRawData.pEffects[ni])
-            {
-                EStarType est = rdRawData.eaStarType[ni];
-                if (est == EStarType::stNormal || est == EStarType::stAnti_Normal/*est != EStarType::stBlackhole && est != EStarType::stAnti_Blackhole*/)
-                {
-                    float fa = 0.4f;
-                    if (rdRawData.naLooseLevel[ni] == 0)
-                        fa = 0.1f;
-                    CTrailEffect* pte = new CTrailEffect(ni, rdRawData.caColor[ni], rgRandom.GenInt(2048, 512),
-                        float(rdRawData.naRadius[ni]), rgRandom.GenInt(192, 64), fa);
-                    rdRawData.pEffects[ni] = pte;
-                    emEffectMan.Add(pte);
-                    bRes = true;
-                }
-            }
-        }
-        // generate explosion effect
-        if ((nExplosionCount--) <= 0/*rgRandom.Probility(1, 3072u << emEffectMan.Size())*/)
-        {
-            // gen explosion effect
-            for (;;)
+            if (rgRandom.Probility(1, nTrailGenTop << emEffectMan.Size()))
             {
                 int ni = rgRandom.GenInt(nAmount);
                 if (!rdRawData.pEffects[ni])
                 {
                     EStarType est = rdRawData.eaStarType[ni];
-                    if (est == EStarType::stNormal || est == EStarType::stAnti_Normal ||
-                        est == EStarType::stGiant || est == EStarType::stAnti_Giant)
+                    if (est == EStarType::stNormal || est == EStarType::stAnti_Normal/*est != EStarType::stBlackhole && est != EStarType::stAnti_Blackhole*/)
                     {
-                        static float ff[7] = { 0.3f, 0.4f, 0.55f, 0.7f, 0.85f, 1.f, 2.f };
-                        int nr = rdRawData.naRadius[ni];
-                        nr -= 2;
-                        nr = nr < 0 ? 0 : nr;
-                        nr = nr > 6 ? 6 : nr;
-                        CExplosion* pee = new CExplosion(ni, rdRawData, 200.f, ff[nr]);
-                        rdRawData.pEffects[ni] = pee;
-                        emEffectMan.Add(pee);
-                        bRes = true;
+                        float fa = 0.4f;
+                        if (rdRawData.naLooseLevel[ni] == 0)
+                            fa = 0.1f;
+                        CTrailEffect* pte = new CTrailEffect(ni, rdRawData.caColor[ni], rgRandom.Probility(1, 4),
+                            rgRandom.GenInt(2048, 512), rdRawData.faRadius[ni], rgRandom.GenInt(192, 64), fa);
+                        rdRawData.pEffects[ni] = pte;
+                        emEffectMan.Add(pte);
+                        n++;
                     }
                 }
-                if (bRes)
-                    break;
             }
-            nExplosionCount = rgRandom.GenInt(3072 << emEffectMan.Size(), 10);
         }
-        return bRes;
+        // generate explosion effect
+        if (bGenExp)
+        {
+            fExpLeftSecond -= float(timer.GetPassed(true));
+            if (fExpLeftSecond <= 0.f)
+            {
+                // gen explosion effect
+                for (int i = 0; i < 8; i++)
+                {
+                    int ni = rgRandom.GenInt(nAmount);
+                    if (!rdRawData.pEffects[ni])
+                    {
+                        EStarType est = rdRawData.eaStarType[ni];
+                        if (est == EStarType::stNormal || est == EStarType::stAnti_Normal ||
+                            est == EStarType::stGiant || est == EStarType::stAnti_Giant)
+                        {
+                            float factor = 1.f;
+                            if (est == EStarType::stNormal || est == EStarType::stAnti_Normal)
+                            {
+                                factor -= (7.5f - rdRawData.faRadius[ni]) * .15f;
+                            }
+                            else // giant star
+                            {
+                                factor = float(rdRawData.faRadius[ni]) / 7.5f;
+                            }
+                            CExplosion* pee = new CExplosion(ni, rdRawData, /*200.f, */factor);
+                            rdRawData.pEffects[ni] = pee;
+                            emEffectMan.Add(pee);
+                            n++;
+                            break;
+                        }
+                    }
+                }
+                fExpLeftSecond = (float)rgRandom.GenInt(nExpGenTop << emEffectMan.Size(), nExpGenBottom);
+            }
+        }
+        return n;
     }
 
     // return true: the effect passed

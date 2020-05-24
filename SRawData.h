@@ -63,11 +63,13 @@ enum class EStarType
 struct SRawData
 {
     float fG{ 0.f };
+    int nComm{ 0 }, nGiant{ 0 }, nBlackhole{ 0 }, nAntiComm{ 0 }, nAntiGiant{ 0 }, nAntiBlackhole{ 0 };
     int nAmount{ 0 };
     int nThreadCount{ 0 };
     EStarType* eaStarType{ nullptr };
-    int* naRadius{ nullptr };
-    float* faCoreRadius{ nullptr }; // alignas(32) 
+    float* faRadius{ nullptr };
+    float* faCoreRadius{ nullptr }; // alignas(32)
+    float* faRadiusFactor{ nullptr };   // alignas(32)
     float* faGm{ nullptr }; // alignas(32) 
     int* naLooseLevel{ nullptr };   // loose level: 0: most loose, 1: middle hard, 2: most hard
     float* faPosX{ nullptr }; // alignas(32) 
@@ -81,17 +83,19 @@ struct SRawData
     COLORREF* caColor{ nullptr };
     void** pEffects{ nullptr };
     bool bReflection{ true };
+    
 
-
-    void Prepare(int nCount, int ntc)
+    void Prepare(int ncm, int ngs, int nbh, int nacm, int nags, int nabh, int ntc)
     {
         Release();
-        nAmount = nCount;
+        nComm = ncm, nGiant = ngs, nBlackhole = nbh, nAntiComm = nacm, nAntiGiant = nags, nAntiBlackhole = nabh;
+        nAmount = ncm + ngs + nbh + nacm + nags + nabh;
         nThreadCount = ntc;
         int nc = nAmount + 8;
         eaStarType = new EStarType[nc];
-        naRadius = new int[nc];
+        faRadius = new float[nc];
         faCoreRadius = (float*)_aligned_malloc(sizeof(float) * nc, 32);
+        faRadiusFactor = (float*)_aligned_malloc(sizeof(float) * nc, 32);
         faGm = (float*)_aligned_malloc(sizeof(float) * nc, 32);
         naLooseLevel = (int*)_aligned_malloc(sizeof(int) * nc, 32);
         faPosX = (float*)_aligned_malloc(sizeof(float) * nc, 32);
@@ -120,15 +124,20 @@ struct SRawData
             delete[] eaStarType;
             eaStarType = nullptr;
         }
-        if (naRadius)
+        if (faRadius)
         {
-            delete[] naRadius;
-            naRadius = nullptr;
+            delete[] faRadius;
+            faRadius = nullptr;
         }
         if (faCoreRadius)
         {
             _aligned_free(faCoreRadius);
             faCoreRadius = nullptr;
+        }
+        if (faRadiusFactor)
+        {
+            _aligned_free(faRadiusFactor);
+            faRadiusFactor = nullptr;
         }
         if (faGm)
         {
@@ -208,6 +217,39 @@ struct SRawData
     }
 
 
+    void Padding(int idx)
+    {
+        ASSERT(idx >= 0 && idx < nAmount);
+
+        float fef_comm = 0.85f, fef_gs = 0.7f, fef_bh = 0.75f, fef_loose = 0.8f;	// elastic factor
+        float fcrf_comm = 0.95f, fcrf_gs = 0.85f, fcrf_bh = 0.95f, fcrf_loose = 0.9f;	// core radius factor for giant star
+
+        switch (eaStarType[idx])
+        {
+        case EStarType::stGiant:
+        case EStarType::stAnti_Giant:
+            faCoreRadius[idx] = faRadius[idx] * fcrf_gs;
+            faRadiusFactor[idx] = 1.f;
+            faElasticFactor[idx] = fef_gs;
+            break;
+        case EStarType::stBlackhole:
+        case EStarType::stAnti_Blackhole:
+            faCoreRadius[idx] = faRadius[idx] * fcrf_bh;
+            faRadiusFactor[idx] = 0.01f;
+            faElasticFactor[idx] = fef_bh;
+            break;
+        case EStarType::stNormal:
+        case EStarType::stAnti_Normal:
+        default:
+            faCoreRadius[idx] = faRadius[idx] * (naLooseLevel[idx] == 0 ? fcrf_loose : fcrf_comm);
+            faRadiusFactor[idx] = 1.f;
+            faElasticFactor[idx] = fef_comm;
+            break;
+        }
+        faAntiG[idx] = eaStarType[idx] < EStarType::stAnti_Normal ? 1.f : -1.f;
+    }
+
+
     void PassWorker(int ni, int nJobFrom, int nJobTo, float fDeltaTime)
     {
         float* pDVX = faThreadOutputDVX[ni];
@@ -224,7 +266,7 @@ struct SRawData
                 float dy = faPosY[j] - faPosY[i];
                 float r2 = dx * dx + dy * dy;
                 float rl2 = faCoreRadius[i] + faCoreRadius[j];
-                rl2 *= rl2;
+                rl2 = rl2 * rl2 * faRadiusFactor[i] * faRadiusFactor[j];
                 if (r2 < rl2)
                     r2 = rl2;
                 float r3 = ::sqrtf(r2) * r2;
@@ -254,7 +296,7 @@ struct SRawData
 
         __m256 mDT = _mm256_set1_ps(fDeltaTime), mAG;
         __m256 mdx, mdy, mr3, mdvxi, mdvyi, mdvxj, mdvyj;
-        __m256 mv1, mv2, mv3;
+        __m256 mv1, mv2, mv3, mv4;
         for (int i = nJobFrom; i < nJobTo; i++)
         {
             for (int j = i + 1; j < nAmount; j += 8)
@@ -265,7 +307,9 @@ struct SRawData
                 mv1 = _mm256_add_ps(_mm256_mul_ps(mdx, mdx), _mm256_mul_ps(mdy, mdy));  // mv1 = r^2
                 mv2 = _mm256_add_ps(_mm256_set1_ps(faCoreRadius[i]), _mm256_load_ps(&faCoreRadius[j])); // mv2 = rl
                 mv3 = _mm256_mul_ps(mv2, mv2);  // mv3 = rl^2
-                mv2 = _mm256_max_ps(mv1, mv3);  // mv2 = r^2
+                mv2 = _mm256_mul_ps(_mm256_set1_ps(faRadiusFactor[i]), _mm256_load_ps(&faRadiusFactor[j]));
+                mv4 = _mm256_mul_ps(mv3, mv2);
+                mv2 = _mm256_max_ps(mv1, mv4);  // mv2 = r^2
                 mr3 = _mm256_mul_ps(mv2, _mm256_sqrt_ps(mv2));
                 mv1 = _mm256_div_ps(_mm256_loadu_ps(&faGm[j]), mr3);    // mv1 = a1
                 mv2 = _mm256_div_ps(_mm256_set1_ps(-faGm[i]), mr3);  // mv2 = -a2

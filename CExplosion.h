@@ -17,6 +17,8 @@ public:
 		SVec2 ptStart, ptEnd;
         SVec2 vSpeed;
         SVec2 vSpeedDec;
+        SVec2 vSpeedBase;
+        bool bEjected{ false };
         float fCoolSpeed{ 0.02f };
         float fWidth{ 1.0f };
         float fBeginFrom{ 0.f };
@@ -44,6 +46,45 @@ public:
                 return true;
         }
 
+
+        bool Pass2(float fx, float fy, float fvx, float fvy, float dt)
+        {
+            fTotalTime += dt;
+            if (fTotalTime > fBeginFrom)
+            {
+                if (!bEjected)
+                {
+                    bEjected = true;
+                    float dx = ptEnd.x - ptStart.x, dy = ptEnd.y - ptStart.y;
+
+                    ptStart.x = fx;
+                    ptStart.y = fy;
+                    ptEnd.x = ptStart.x + dx;
+                    ptEnd.y = ptStart.y + dy;
+                    vSpeedBase.x = fvx;
+                    vSpeedBase.y = fvy;
+                }
+
+                fAlpha = (fLifeSpan - fTotalTime + fBeginFrom) / fLifeSpan;
+                if (fAlpha > 0.f)
+                {
+                    float ldx = vSpeed.x * dt + vSpeedBase.x * dt, ldy = vSpeed.y * dt;
+                    ptStart.x += ldx;
+                    ptStart.y += ldy;
+                    ptEnd.x += ldx;
+                    ptEnd.y += ldy;
+                    vSpeed.x -= vSpeedDec.x * dt;
+                    vSpeed.y -= vSpeedDec.y * dt;
+                    return true;
+                }
+                else
+                    return false;
+            }
+            else
+                return true;
+        }
+
+
         // return true: need continue to draw, return false: no drawing needed
         void Draw(CRenderTarget* prt)
         {
@@ -59,7 +100,7 @@ public:
     typedef std::vector<SLine_Pointer> SLine_Pointer_Vector;
 
 
-    CExplosion(int ni, const SRawData& rd, float r = 150.f, float f = 1.0f)
+    CExplosion(int ni, const SRawData& rd, /*float r = 150.f, */float f = 1.0f)
     {
         dtDrawType = EDrawType::dtAfter/*EDrawType::dtReplace*/;
         ptPassType = EPassType::ptBeforeVelocity;
@@ -67,10 +108,14 @@ public:
         nIndex = ni;
         ptPos.x = rd.faPosX[ni];
         ptPos.y = rd.faPosY[ni];
-        nLWMax = rd.naRadius[ni] + 1;
-        nLWMin = nLWMax / 4;
-        nLWMin = nLWMin < 1 ? 1 : nLWMin;
-        fRadius = r * f;
+        nLMax = int(rd.faRadius[ni] * 2.f);
+        nLMin = nLMax / 4;
+        nLMin = nLMin < 2 ? 2 : nLMin;
+        nWMax = int(rd.faRadius[ni]);
+        nWMin = nWMax / 2;
+        nWMin = nWMin < 1 ? 1 : nWMin;
+        nWMax = nWMax <= nWMin ? nWMin + 1 : nWMax;
+        //fRadius = r * f;
         fFactor = f;
         clrColor = rd.caColor[ni];
         Gen(ptPos.x, ptPos.y);
@@ -79,10 +124,13 @@ public:
     // return true: effect over
     virtual bool Pass(SRawData& rd, float fDeltaTime) override
     {
-        static float fGmAmp = 256.f;
-        static float fPushStart = 0.2f, fPushEnd = 0.75f;
+        static float fGmAmp = float(rgRandom.GenInt(512, 256)) * rd.faRadius[nIndex];
+        static float fPushStart = 0.1f, fPushEnd = 1.3f;
         static float fElapsed = 0.f;
+        static float fRadius{ 0.f };
 
+        fElapsed += fDeltaTime;
+        fRadius += (75.f * fFactor * fDeltaTime);
         float dx, dy;
         if (fElapsed > fPushStart && fElapsed < fPushEnd)
         {
@@ -114,12 +162,16 @@ public:
         ptPos.y = rd.faPosY[nIndex];
         for (auto it : lpvLines)
         {
-            if (it->Pass(dx, dy, fDeltaTime))
+            //if (it->Pass(dx, dy, fDeltaTime))
+            //    bRes = false;
+            if (it->Pass2(rd.faPosX[nIndex], rd.faPosY[nIndex], rd.faVelocityX[nIndex], rd.faVelocityY[nIndex], fDeltaTime))
                 bRes = false;
         }
-        fElapsed += fDeltaTime;
         if (bRes)
+        {
             fElapsed = 0.f;
+            fRadius = 0.f;
+        }
         return bRes;
     }
 
@@ -136,10 +188,11 @@ protected:
     int nIndex;
     SVec2 ptPos;
     COLORREF clrColor;
-    int nLWMin{ 2 }, nLWMax{ 8 };
-    float fRadius;
+    int nLMin{ 2 }, nLMax{ 8 }, nWMin{ 1 }, nWMax{ 4 };
+//    float fRadius;
     float fFactor;
     SLine_Pointer_Vector lpvLines;
+    CRandomGen rgRandom;
 
     COLORREF GenColor(COLORREF clr, CRandomGen& rg)
     {
@@ -165,7 +218,6 @@ protected:
         static float fFrameTime = 0.0167f;
 
         lpvLines.clear();
-        CRandomGen rg;
         for (int i = 0; i < 8; i++)
         {
             //int n = int(float(nNumbers[i]) * ::sqrtf(fFactor));
@@ -173,17 +225,17 @@ protected:
             for (int j = 0; j < n; j++)
             {
                 SLine_Pointer lp = std::make_shared<SLine>();
-                lp->clr = GenColor(clrColor, rg);
-                lp->fBeginFrom = float(i) * fFrameTime;
+                lp->clr = GenColor(clrColor, rgRandom);
+                lp->fBeginFrom = float(i * 3) * fFrameTime;
                 lp->ptStart.x = x;
                 lp->ptStart.y = y;
-                float flen = ((float)rg.GenInt(nLWMax, nLWMin))/* * fFactor*/;
+                float flen = ((float)rgRandom.GenInt(nLMax, nLMin))/* * fFactor*/;
                 // gen direction
                 SVec2 varc;
                 for (;;)
                 {
-                    varc.x = (float)rg.GenInt(50, -50);
-                    varc.y = (float)rg.GenInt(50, -50);
+                    varc.x = (float)rgRandom.GenInt(50, -50);
+                    varc.y = (float)rgRandom.GenInt(50, -50);
                     if (::fabs(varc.x) + ::fabs(varc.y) > 0.5f)
                         break;
                 }
@@ -192,10 +244,10 @@ protected:
                 lp->ptEnd.y = lp->ptStart.y + varc.y;
                 lp->vSpeed.x = lp->ptStart.dx(lp->ptEnd);
                 lp->vSpeed.y = lp->ptStart.dy(lp->ptEnd);
-                lp->vSpeed.Scale((float)rg.GenInt(nSpeedsMax[i], nSpeedsMin[i]) * fFactor);
+                lp->vSpeed.Scale((float)rgRandom.GenInt(nSpeedsMax[i], nSpeedsMin[i]) * fFactor);
                 lp->vSpeedDec = lp->vSpeed;
-                lp->vSpeedDec.Scale(float(rg.GenInt(nSpeedDecMax, nSpeedDecMin)) * fFactor);
-                lp->fWidth = float(rg.GenInt(nLWMax, nLWMin))/* * fFactor*/;
+                lp->vSpeedDec.Scale(float(rgRandom.GenInt(nSpeedDecMax, nSpeedDecMin)) * fFactor);
+                lp->fWidth = float(rgRandom.GenInt(nWMax, nWMin))/* * fFactor*/;
                 lpvLines.push_back(lp);
             }
         }

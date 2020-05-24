@@ -23,12 +23,13 @@ class CShowWnd : public CWnd
 
 public:
 	CWorld* pWorld;
+	DotBmpPointerVector bmpBodys;
 
 	CShowWnd();
 	virtual ~CShowWnd();
 
 	bool Generate(int ns, COLORREF clr);
-	void SetCurrBmp(int ni) { nCurrBmp = ni; }
+	//void SetCurrBmp(int ni) { nCurrBmp = ni; }
 	void InitWorld(int nG, int nc, int ngs = 0, int nbh = 0, int nc2 = 0, int ngs2 = 0, int nbh2 = 0);
 	void InitWorldRaw(int ntc, int nG, int nc, int ngs = 0, int nbh = 0, int nc2 = 0, int ngs2 = 0, int nbh2 = 0);
 	void Run(void);
@@ -39,12 +40,12 @@ public:
 protected:
 	DECLARE_MESSAGE_MAP()
 
-	DotInfoList dilDots;
-	DotBmpPointerVector dbpvBmps; 
-	DotBmpPointerVector bmpBodys;
+//	DotInfoList dilDots;
+	CRandomGen rgRandom;
+	COLORREF clrOSD1, clrOSD2;
+	BOOL bOSD{ TRUE };
 
-	int nCurrBmp{ -1 };
-	int nAmount;
+	//int nCurrBmp{ -1 };
 	bool bRunning{ false };
 
 	DotBmpPointer GenDot(int ns, COLORREF clr, bool bLoose, EDotType dt = EDotType::dtNormal);
@@ -58,10 +59,12 @@ protected:
 	static COLORREF RandomColorWhite(CRandomGen& rg);
 	static COLORREF RandomNormalColor(CRandomGen& rg);
 	static COLORREF RandomAntiGColor(CRandomGen& rg);
+	static COLORREF MakeLightColor(COLORREF clr, float thrus = 0.9f);
+	static COLORREF InterpolateColor(COLORREF clr1, COLORREF clr2, int nPos, int nSpan = 300);
 
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
-	afx_msg LRESULT OnDraw2d(WPARAM wParam, LPARAM lParam);
+	//afx_msg LRESULT OnDraw2d(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnUserDrawWorld(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnUserDrawWorld2(WPARAM wParam, LPARAM lParam);
 };

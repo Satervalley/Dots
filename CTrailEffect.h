@@ -13,14 +13,18 @@ typedef boost::circular_buffer<SVec2> SVec2_CB;
 class CTrailEffect : public CSingleEffect
 {
 public:
-	CTrailEffect(int ni, COLORREF clr, int nls = 500, float fw = 1.0f, size_t cap = TRAIL_LENGTH, float fam = 0.4f)
+	CTrailEffect(int ni, COLORREF clr, bool bd = false, int nls = 500, float fw = 1.0f, size_t cap = TRAIL_LENGTH, float fam = 0.4f)
 	{
 		const float fBaseLength = 64.f;
 		nIndex = ni;
 		clrColor = clr;
+		bDiffuse = bd;
 		nLifeSpan = nls;
 		fThickRoot = fw;
-		fThickTail = fThickRoot + float(cap) / fBaseLength * fThickRoot;
+		if (bDiffuse)
+			fThickTail = fThickRoot + float(cap) / fBaseLength * fThickRoot;
+		else
+			fThickTail = 1.0f;
 		cbPoints.set_capacity(cap);
 		fAlphaMax = fam;
 		//nSteps = 0;
@@ -78,6 +82,7 @@ public:
 protected:
 	int nLifeSpan;
 	COLORREF clrColor;
+	bool bDiffuse{ false };
 	SVec2_CB cbPoints;
 	float fThickRoot, fThickTail;
 	float fAlphaMax{ 0.4f };

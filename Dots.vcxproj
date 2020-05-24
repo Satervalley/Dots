@@ -192,9 +192,10 @@
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="CDotBmp.h" />
+    <ClInclude Include="CUtil.h" />
     <ClInclude Include="SRawData.h" />
     <ClInclude Include="CColorPickingWnd.h" />
-    <ClInclude Include="CDotBmp.h" />
     <ClInclude Include="CEffect.h" />
     <ClInclude Include="CEffectManager.h" />
     <ClInclude Include="CExplosion.h" />

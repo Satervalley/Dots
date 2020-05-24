@@ -18,7 +18,7 @@ class CDotBmp
 public:
 	CDotBmp(int ns, COLORREF clr, CRenderTarget* prt, bool bLoose = false, EDotType dt = EDotType::dtNormal)
 	{
-		ASSERT(ns > 1 && ns < 50 && ns % 2);
+		ASSERT(ns > 2 && ns < 500);
 		ASSERT_VALID(prt);
 
 		dwData = new DWORD[ns * ns];
@@ -66,16 +66,16 @@ protected:
 	
 	void MakeRaw(bool bLoose)
 	{
-		int nc = nSize / 2;
-		float fstep = float(1.f / float(nc + 1));
+		float nc = float(nSize - 1) / 2.f;
+		float fstep = float(1.f / float(nc + 1.f));
 		float r, xd, yd;
 		DWORD dw;
 		for (int i = 0; i < nSize; i++)
 		{
 			for (int j = 0; j < nSize; j++)
 			{
-				xd = float(i - nc);
-				yd = float(j - nc);
+				xd = float(i) - nc;
+				yd = float(j) - nc;
 				r = ::sqrtf(xd * xd + yd * yd);
 				r = float(1.f - fstep * r);
 				if (r <= 0.)
@@ -116,12 +116,25 @@ protected:
 		}
 		else
 		{
-			int nHS = int(float(nSize) * .5f + .6f);
-			if (nHS % 2 == 0)
-				nHS++;
+			int nRim = nSize / 8;
+			nRim = nRim < 1 ? 1 : nRim;
+			int nHS = nSize - nRim * 2;
+			if (nSize % 2)
+			{
+				if (nHS % 2 == 0)
+					nHS--;
+			}
+			else
+			{
+				if (nHS % 2)
+					nHS--;
+			}
+			//int nHS = int(float(nSize) * .5f + .6f);
+			//if (nHS % 2 == 0)
+			//	nHS++;
 			int ndiff = (nSize - nHS) / 2;
-			int nc = nHS / 2;
-			float fstep = float(1.f / float(nc + 1));
+			float nc = float(nHS - 1) / 2.f;
+			float fstep = float(1.f / float(nc + 1.f));
 			float r, xd, yd;
 			DWORD dw;
 			for (int i = 0; i < nHS; i++)
@@ -136,7 +149,10 @@ protected:
 						dw = 0;
 					else
 					{
-						r = ::sqrtf(r);
+						//r = ::sqrtf(r);
+						//r = ::sqrtf(r);
+						//r = ::sqrtf(r);
+						r = ::powf(r, 0.2f);
 						dw = BYTE(255. * r);
 						dw <<= 24;
 					}

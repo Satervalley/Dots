@@ -48,8 +48,8 @@ BEGIN_MESSAGE_MAP(CDotsDlg, CDialog)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDC_BUTTON_COLOR, &CDotsDlg::OnClickedButtonColor)
-	ON_CBN_SELCHANGE(IDC_COMBO_DOTS, &CDotsDlg::OnSelchangeComboDots)
-	ON_BN_CLICKED(IDC_BUTTON_GENERATE, &CDotsDlg::OnClickedButtonGenerate)
+//	ON_CBN_SELCHANGE(IDC_COMBO_DOTS, &CDotsDlg::OnSelchangeComboDots)
+//	ON_BN_CLICKED(IDC_BUTTON_GENERATE, &CDotsDlg::OnClickedButtonGenerate)
 	ON_MESSAGE(WM_USER_SELECT_COLOR, &CDotsDlg::OnUserSelectColor)
 	ON_BN_CLICKED(IDC_BUTTON_RUN, &CDotsDlg::OnClickedButtonRun)
 	ON_BN_CLICKED(IDC_CHECK_GRID, &CDotsDlg::OnClickedCheckGrid)
@@ -144,13 +144,14 @@ void CDotsDlg::OnClickedButtonColor()
 
 }
 
-
+/*
 void CDotsDlg::OnSelchangeComboDots()
 {
 	swShow.SetCurrBmp(cmbDots.GetCurSel());
 }
+*/
 
-
+/*
 void CDotsDlg::OnClickedButtonGenerate()
 {
 	int ns = cmbSize.GetCurSel();
@@ -166,7 +167,7 @@ void CDotsDlg::OnClickedButtonGenerate()
 		OnSelchangeComboDots();
 	}
 }
-
+*/
 
 afx_msg LRESULT CDotsDlg::OnUserSelectColor(WPARAM wParam, LPARAM lParam)
 {

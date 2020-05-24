@@ -36,9 +36,6 @@
     <ClInclude Include="CColorPickingWnd.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="CDotBmp.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="CShowWnd.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -67,6 +64,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SRawData.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CDotBmp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CUtil.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

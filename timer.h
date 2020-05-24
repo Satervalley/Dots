@@ -7,11 +7,13 @@
 class CHiTimer
 {
 public:
-    CHiTimer()
+    CHiTimer(bool bStart = false)
     {
         LARGE_INTEGER liFreq;
         ::QueryPerformanceFrequency(&liFreq);
         dfFreq = double(liFreq.QuadPart);
+        if (bStart)
+            Start();
     }
 
 
