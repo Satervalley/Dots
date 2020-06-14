@@ -55,9 +55,19 @@ typedef std::vector<CEffect_Pointer> CEffect_Pointer_Vector;
 
 class CSingleEffect : public CEffect
 {
+public:
+	CSingleEffect(int idx)
+	{
+		nIndex = idx;
+	}
+
+	int Index(void) const
+	{
+		return nIndex;
+	}
+
 protected:
 	int nIndex;
-//	int nSteps;
 };
 
 

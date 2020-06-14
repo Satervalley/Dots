@@ -10,6 +10,8 @@ typedef std::set<CEffect*> CEffect_Set;
 class CEffectManager
 {
 public:
+	CEffect_Set esEffects;
+
 
 	~CEffectManager()
 	{
@@ -45,7 +47,5 @@ public:
 	{
 		return esEffects.size();
 	}
-protected:
-	CEffect_Set esEffects;
 };
 

@@ -13,10 +13,10 @@ typedef boost::circular_buffer<SVec2> SVec2_CB;
 class CTrailEffect : public CSingleEffect
 {
 public:
-	CTrailEffect(int ni, COLORREF clr, bool bd = false, int nls = 500, float fw = 1.0f, size_t cap = TRAIL_LENGTH, float fam = 0.4f)
+	CTrailEffect(int ni, COLORREF clr, bool bd = false, int nls = 500, float fw = 1.0f, 
+		size_t cap = TRAIL_LENGTH, float fam = 0.4f) : CSingleEffect(ni)
 	{
 		const float fBaseLength = 64.f;
-		nIndex = ni;
 		clrColor = clr;
 		bDiffuse = bd;
 		nLifeSpan = nls;

@@ -76,7 +76,7 @@ struct SRawData
     float* faPosY{ nullptr }; // alignas(32) 
     float* faVelocityX{ nullptr }; // alignas(32) 
     float* faVelocityY{ nullptr }; // alignas(32) 
-    float* faElasticFactor{ nullptr }; // alignas(32) 
+//    float* faElasticFactor{ nullptr }; // alignas(32) 
     float* faAntiG{ nullptr }; // alignas(32) 
     float** faThreadOutputDVX{ nullptr }; // alignas(32), thread output here, delta velocity X
     float** faThreadOutputDVY{ nullptr }; // alignas(32), thread output here, delta velocity Y
@@ -102,7 +102,7 @@ struct SRawData
         faPosY = (float*)_aligned_malloc(sizeof(float) * nc, 32);
         faVelocityX = (float*)_aligned_malloc(sizeof(float) * nc, 32);
         faVelocityY = (float*)_aligned_malloc(sizeof(float) * nc, 32);
-        faElasticFactor = (float*)_aligned_malloc(sizeof(float) * nc, 32);
+//        faElasticFactor = (float*)_aligned_malloc(sizeof(float) * nc, 32);
         faAntiG = (float*)_aligned_malloc(sizeof(float) * nc, 32);
         faThreadOutputDVX = new float* [nThreadCount];
         faThreadOutputDVY = new float* [nThreadCount];
@@ -169,11 +169,13 @@ struct SRawData
             _aligned_free(faVelocityY);
             faVelocityY = nullptr;
         }
+/*
         if (faElasticFactor)
         {
             _aligned_free(faElasticFactor);
             faElasticFactor = nullptr;
         }
+*/
         if (faAntiG)
         {
             _aligned_free(faAntiG);
@@ -221,7 +223,7 @@ struct SRawData
     {
         ASSERT(idx >= 0 && idx < nAmount);
 
-        float fef_comm = 0.85f, fef_gs = 0.7f, fef_bh = 0.75f, fef_loose = 0.8f;	// elastic factor
+        float fef_comm = 0.98f, fef_gs = 0.97f, fef_bh = 0.98f, fef_loose = 0.97f;	// elastic factor
         float fcrf_comm = 0.95f, fcrf_gs = 0.85f, fcrf_bh = 0.95f, fcrf_loose = 0.9f;	// core radius factor for giant star
 
         switch (eaStarType[idx])
@@ -230,20 +232,20 @@ struct SRawData
         case EStarType::stAnti_Giant:
             faCoreRadius[idx] = faRadius[idx] * fcrf_gs;
             faRadiusFactor[idx] = 1.f;
-            faElasticFactor[idx] = fef_gs;
+//            faElasticFactor[idx] = fef_gs;
             break;
         case EStarType::stBlackhole:
         case EStarType::stAnti_Blackhole:
             faCoreRadius[idx] = faRadius[idx] * fcrf_bh;
             faRadiusFactor[idx] = 0.01f;
-            faElasticFactor[idx] = fef_bh;
+//            faElasticFactor[idx] = fef_bh;
             break;
         case EStarType::stNormal:
         case EStarType::stAnti_Normal:
         default:
             faCoreRadius[idx] = faRadius[idx] * (naLooseLevel[idx] == 0 ? fcrf_loose : fcrf_comm);
             faRadiusFactor[idx] = 1.f;
-            faElasticFactor[idx] = fef_comm;
+//            faElasticFactor[idx] = fef_comm;
             break;
         }
         faAntiG[idx] = eaStarType[idx] < EStarType::stAnti_Normal ? 1.f : -1.f;

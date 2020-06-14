@@ -566,9 +566,10 @@ public:
         float fli, fri, fti, fbi;
         float fdvx = 0.f, fdvy = 0.f;
 
+        PassAllEffects(fdt, EPassType::ptBeforeVelocity);
         for (int i = 0; i < nAmount; i++)
         {
-            PassEffect(rdRawData, i, fdt, EPassType::ptBeforeVelocity);
+//            PassEffect(rdRawData, i, fdt, EPassType::ptBeforeVelocity);
 
             fdvx = fdvy = 0.f;
             if (bMT)
@@ -607,25 +608,25 @@ public:
                 if (rdRawData.faPosX[i] < fli)
                 {
                     rdRawData.faPosX[i] = fli + fli - rdRawData.faPosX[i];
-                    rdRawData.faVelocityX[i] = -rdRawData.faVelocityX[i] * rdRawData.faElasticFactor[i];
+                    rdRawData.faVelocityX[i] = -rdRawData.faVelocityX[i] * ElasticFactor(rdRawData.faVelocityX[i])/*rdRawData.faElasticFactor[i]*/;
                 }
                 else if (rdRawData.faPosX[i] > fri)
                 {
                     rdRawData.faPosX[i] = fri - rdRawData.faPosX[i] + fri;
-                    rdRawData.faVelocityX[i] = -rdRawData.faVelocityX[i] * rdRawData.faElasticFactor[i];
+                    rdRawData.faVelocityX[i] = -rdRawData.faVelocityX[i] * ElasticFactor(rdRawData.faVelocityX[i])/*rdRawData.faElasticFactor[i]*/;
                 }
                 if (rdRawData.faPosY[i] < fti)
                 {
                     rdRawData.faPosY[i] = fti + fti - rdRawData.faPosY[i];
-                    rdRawData.faVelocityY[i] = -rdRawData.faVelocityY[i] * rdRawData.faElasticFactor[i];
+                    rdRawData.faVelocityY[i] = -rdRawData.faVelocityY[i] * ElasticFactor(rdRawData.faVelocityY[i])/*rdRawData.faElasticFactor[i]*/;
                 }
                 else if (rdRawData.faPosY[i] > fbi)
                 {
                     rdRawData.faPosY[i] = fbi - rdRawData.faPosY[i] + fbi;
-                    rdRawData.faVelocityY[i] = -rdRawData.faVelocityY[i] * rdRawData.faElasticFactor[i];
+                    rdRawData.faVelocityY[i] = -rdRawData.faVelocityY[i] * ElasticFactor(rdRawData.faVelocityY[i])/*rdRawData.faElasticFactor[i]*/;
                 }
             }
-            PassEffect(rdRawData, i, fdt, EPassType::ptPosition);
+            PassEffect(i, fdt, EPassType::ptPosition);
         }
         GenEffect();
     }
@@ -646,8 +647,8 @@ public:
 
     void SetEventFrequency(int nTF, int nEF)
     {
-        int ntfs[4] = { 1024, 1024, 2048, 4096 };
-        int nefs[4] = { 50, 50, 100, 200 };
+        int ntfs[4] = { 2048, 2048, 4096, 8192 };
+        int nefs[4] = { 32, 32, 64, 128 };
         nTF = nTF % 4;
         nEF = nEF % 4;
         if (nTF == 0)
@@ -682,8 +683,8 @@ protected:
     //int nExplosionCount;
     float fExpLeftSecond;
     bool bGenTrail{ true }, bGenExp{ true };
-    int nTrailGenTop{ 1024 };  // frames
-    int nExpGenTop{ 100 }, nExpGenBottom{ 10 };    // seconds
+    int nTrailGenTop{ 2048 };  // frames
+    int nExpGenTop{ 20 }, nExpGenBottom{ 1 };    // seconds
 
 
     int GenEffect(void)
@@ -693,7 +694,7 @@ protected:
         // generate trail effects
         if (bGenTrail)
         {
-            if (rgRandom.Probility(1, nTrailGenTop << emEffectMan.Size()))
+            if (rgRandom.Probility(1, nTrailGenTop/* << emEffectMan.Size()*/))
             {
                 int ni = rgRandom.GenInt(nAmount);
                 if (!rdRawData.pEffects[ni])
@@ -720,56 +721,110 @@ protected:
             if (fExpLeftSecond <= 0.f)
             {
                 // gen explosion effect
-                for (int i = 0; i < 8; i++)
+                int nec = 1;
+                if (rgRandom.Probility(1u, 4u))
                 {
-                    int ni = rgRandom.GenInt(nAmount);
-                    if (!rdRawData.pEffects[ni])
-                    {
-                        EStarType est = rdRawData.eaStarType[ni];
-                        if (est == EStarType::stNormal || est == EStarType::stAnti_Normal ||
-                            est == EStarType::stGiant || est == EStarType::stAnti_Giant)
-                        {
-                            float factor = 1.f;
-                            if (est == EStarType::stNormal || est == EStarType::stAnti_Normal)
-                            {
-                                factor -= (7.5f - rdRawData.faRadius[ni]) * .15f;
-                            }
-                            else // giant star
-                            {
-                                factor = float(rdRawData.faRadius[ni]) / 7.5f;
-                            }
-                            CExplosion* pee = new CExplosion(ni, rdRawData, /*200.f, */factor);
-                            rdRawData.pEffects[ni] = pee;
-                            emEffectMan.Add(pee);
-                            n++;
-                            break;
-                        }
-                    }
+                    nec++;
+                    if (rgRandom.Probility(1u, 4u))
+                        nec++;
                 }
-                fExpLeftSecond = (float)rgRandom.GenInt(nExpGenTop << emEffectMan.Size(), nExpGenBottom);
+                for (int i = 0; i < nec; i++)
+                {
+                    if (GenExplosionEffect())
+                        n++;
+                }
+                fExpLeftSecond = (float)rgRandom.GenInt(nExpGenTop/* << emEffectMan.Size()*/, nExpGenBottom);
             }
         }
         return n;
     }
 
-    // return true: the effect passed
-    bool PassEffect(SRawData& rd, int ni, float fdt, EPassType pt)
+
+//----------------------------------------------------------------------------------------------------------------------
+    bool GenExplosionEffect(void)
     {
         bool bRes = false;
-        if (rd.pEffects[ni])
+        for (int i = 0; i < 8; i++)
         {
-            CEffect* pe = reinterpret_cast<CEffect*>(rd.pEffects[ni]);
+            int ni = rgRandom.GenInt(nAmount);
+            if (!rdRawData.pEffects[ni])
+            {
+                EStarType est = rdRawData.eaStarType[ni];
+                if (est == EStarType::stNormal || est == EStarType::stAnti_Normal ||
+                    est == EStarType::stGiant || est == EStarType::stAnti_Giant)
+                {
+                    float factor = 1.f;
+                    if (est == EStarType::stNormal || est == EStarType::stAnti_Normal)
+                    {
+                        factor -= (7.5f - rdRawData.faRadius[ni]) * .15f;
+                    }
+                    else // giant star
+                    {
+                        factor = float(rdRawData.faRadius[ni]) / 7.5f;
+                    }
+                    //CExplosion* pee = new CExplosion(ni, rdRawData, /*200.f, */factor);
+                    CEffect* pee = nullptr;
+                    if(rgRandom.GenBool())
+                        pee = new CExplosion2(ni, rdRawData, 0.03f, factor);
+                    else
+                        pee = new CExplosion(ni, rdRawData, factor);
+                    rdRawData.pEffects[ni] = pee;
+                    emEffectMan.Add(pee);
+                    bRes = true;
+                    break;
+                }
+            }
+        }
+        return bRes;
+    }
+
+
+    // return true: the effect passed
+    bool PassEffect(int ni, float fdt, EPassType pt)
+    {
+        bool bRes = false;
+        if (rdRawData.pEffects[ni])
+        {
+            CEffect* pe = reinterpret_cast<CEffect*>(rdRawData.pEffects[ni]);
             if (pe->PassType() == pt)
             {
                 if (pe->Pass(rdRawData, fdt))
                 {
                     emEffectMan.Remove(pe);
-                    rd.pEffects[ni] = nullptr;
+                    rdRawData.pEffects[ni] = nullptr;
                 }
                 bRes = true;
             }
         }
         return bRes;
+    }
+
+
+    void PassAllEffects(float fdt, EPassType pt)
+    {
+        typedef std::vector<CEffect*> EV;
+        EV ev;
+        for (auto it : emEffectMan.esEffects)
+        {
+            if (it->PassType() == pt)
+            {
+                if (it->Pass(rdRawData, fdt))
+                    ev.push_back(it);
+            }
+        }
+        for (auto it : ev)
+        {
+            rdRawData.pEffects[reinterpret_cast<CSingleEffect*>(it)->Index()] = nullptr;
+            emEffectMan.Remove(it);
+        }
+    }
+
+
+    float ElasticFactor(float v)
+    {
+        v = ::fabsf(v);
+        float f = v / (v + 2000.f);
+        return (1.f - f * f);
     }
 //----------------------------------------------------------------------------------------------------------------------
 /*

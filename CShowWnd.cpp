@@ -62,6 +62,7 @@ int CShowWnd::OnCreate(LPCREATESTRUCT lpCreateStruct)
 //----------------------------------------------------------------------------------------------------------------------
 void CShowWnd::OnLButtonDown(UINT nFlags, CPoint point)
 {
+	/*
 	if (!bRunning)
 	{
 		CRenderTarget* prt = GetRenderTarget();
@@ -83,20 +84,22 @@ void CShowWnd::OnLButtonDown(UINT nFlags, CPoint point)
 		prt->DrawBitmap(db2, rect);
 		prt->EndDraw();
 	}
-	/*
+	*/
+	
 	if (!bRunning)
 	{
 		InitWorldRaw(1, 100, 100);
-		pWorld->rdRawData.faPosX[0] = point.x;
-		pWorld->rdRawData.faPosY[0] = point.y;
+		pWorld->rdRawData.faPosX[0] = float(point.x);
+		pWorld->rdRawData.faPosY[0] = float(point.y);
 		pWorld->rdRawData.caColor[0] = RGB(100, 100, 100);
-		CExplosion exp(0, pWorld->rdRawData, 100.f, 1.f);
+		CExplosion2 exp(0, pWorld->rdRawData);
+		//CExplosion exp(0, pWorld->rdRawData, 1.f);
 		CRenderTarget* prt = GetRenderTarget();
 		bool b;
 		for (;;)
 		{
 			b = exp.Pass(pWorld->rdRawData, 0.0167f);
-			if (!b)
+			if (b)
 				break;
 			prt->BeginDraw();
 			prt->Clear(D2D1::ColorF(D2D1::ColorF::Black));
@@ -105,7 +108,7 @@ void CShowWnd::OnLButtonDown(UINT nFlags, CPoint point)
 			::Sleep(15);
 		}
 	}
-	*/
+	
 	/*
 	if (nCurrBmp >= 0 && nCurrBmp < (int)dbpvBmps.size())
 	{
@@ -562,21 +565,13 @@ void CShowWnd::InitWorld(int nG, int nc, int ngs, int nbh, int nc2, int ngs2, in
 //----------------------------------------------------------------------------------------------------------------------
 void CShowWnd::InitWorldRaw(int ntc, int nG, int nc, int ngs, int nbh, int nc2, int ngs2, int nbh2)
 {
-//	static int nDias[6] = { 5, 7, 9, 11, 13, 15 }; // normal star diameters
-//	static int nDias_bh[4] = { 9, 11, 13, 15 };    // blackhole diameters
 	int nDiaMax_Comm{ 16 }, nDiaMin_Comm{ 5 };	// common star diameters: 5 - 15, total number 11
 	int nDiaMax_Giant{ 34 }, nDiaMin_Giant{ 23 };	// giant star diameters: 23 - 33, total number 11
 	int nDiaMax_BH{ 16 }, nDiaMin_BH{ 9 };	// blackhole diameters: 9 - 15, total number 7
 	static int nms[12] = { 2, 4, 7, 11, 16, 23, 32, 43, 57, 74, 94, 118 };  // normal star mass
 	static int ngsms[12] = { 418, 485, 559, 641, 732, 831, 940, 1058, 1187, 1326, 1477, 1640 };  // giant star mass
 	static int nbhms[8] = { 302, 512, 824, 1274, 1901, 2754, 3888, 5369  };	// blackhole mass
-	//static float fef[6] = { 0.90f, 0.88f, 0.86f, 0.84f, 0.82f, 0.80f };	// elastic factor
-	//static float fef2[6] = { 0.80f, 0.78f, 0.76f, 0.74f, 0.72f, 0.70f };	// elastic factor for loose star
-	//static float fef_bh[4] = { 0.68f, 0.66f, 0.64f, 0.62f }; // elastic factor for blackhole
-	//static float fcrf[6] = { 1.0f, 0.98f, 0.96f, 0.94f, 0.92f, 0.90f }; // core radius factor
-	//static float fcrf2[6] = { 0.96f, 0.94f, 0.92f, 0.90f, 0.88f, 0.86f }; // core radius factor for loose star
-	//static float fcrf_bh[4] = { 1.0f, 0.98f, 0.96f, 0.94f };	// core radius factor for black hole
-	float fef_comm = 0.85f, fef_gs = 0.7f, fef_bh = 0.75f, fef_loose = 0.8f;	// elastic factor
+	float fef_comm = 0.98f, fef_gs = 0.97f, fef_bh = 0.98f, fef_loose = 0.97f;	// elastic factor
 	float fcrf_comm = 0.95f, fcrf_gs = 0.85f, fcrf_bh = 0.95f, fcrf_loose = 0.9f;	// core radius factor for giant star
 	CRandomGen rg;
 	CRect rect;
@@ -606,7 +601,7 @@ void CShowWnd::InitWorldRaw(int ntc, int nG, int nc, int ngs, int nbh, int nc2, 
 		rrd.faPosY[i] = (float)rg.GenInt(nh - nh / 4, nh / 4);
 		rrd.faVelocityX[i] = (float)rg.GenInt(10, -10);
 		rrd.faVelocityY[i] = (float)rg.GenInt(10, -10);
-		rrd.faElasticFactor[i] = fef_gs;
+//		rrd.faElasticFactor[i] = fef_gs;
 		rrd.faAntiG[i] = 1.0f;
 		clr = RandomNormalColor(rg);
 		rrd.caColor[i] = clr;
@@ -626,7 +621,7 @@ void CShowWnd::InitWorldRaw(int ntc, int nG, int nc, int ngs, int nbh, int nc2, 
 		rrd.faPosY[i + nCount] = (float)rg.GenInt(nh - nh / 4, nh / 4);
 		rrd.faVelocityX[i + nCount] = (float)rg.GenInt(10, -10);
 		rrd.faVelocityY[i + nCount] = (float)rg.GenInt(10, -10);
-		rrd.faElasticFactor[i + nCount] = fef_gs;
+//		rrd.faElasticFactor[i + nCount] = fef_gs;
 		rrd.faAntiG[i + nCount] = -1.0f;
 		clr = RandomAntiGColor(rg);
 		rrd.caColor[i + nCount] = clr;
@@ -646,7 +641,7 @@ void CShowWnd::InitWorldRaw(int ntc, int nG, int nc, int ngs, int nbh, int nc2, 
 		rrd.faPosY[i + nCount] = (float)rg.GenInt(nh - nh / 4, nh / 4);
 		rrd.faVelocityX[i + nCount] = (float)rg.GenInt(10, -10);
 		rrd.faVelocityY[i + nCount] = (float)rg.GenInt(10, -10);
-		rrd.faElasticFactor[i + nCount] = fef_bh;
+//		rrd.faElasticFactor[i + nCount] = fef_bh;
 		rrd.faAntiG[i + nCount] = 1.0f;
 		clr = RandomNormalColor(rg);
 		clr = MakeLightColor(clr, 1.f);
@@ -667,7 +662,7 @@ void CShowWnd::InitWorldRaw(int ntc, int nG, int nc, int ngs, int nbh, int nc2, 
 		rrd.faPosY[i + nCount] = (float)rg.GenInt(nh - nh / 4, nh / 4);
 		rrd.faVelocityX[i + nCount] = (float)rg.GenInt(10, -10);
 		rrd.faVelocityY[i + nCount] = (float)rg.GenInt(10, -10);
-		rrd.faElasticFactor[i + nCount] = fef_bh;
+//		rrd.faElasticFactor[i + nCount] = fef_bh;
 		rrd.faAntiG[i + nCount] = -1.0f;
 		clr = RandomAntiGColor(rg);
 		clr = MakeLightColor(clr, 1.f);
@@ -694,10 +689,12 @@ void CShowWnd::InitWorldRaw(int ntc, int nG, int nc, int ngs, int nbh, int nc2, 
 		rrd.faPosY[i + nCount] = (float)rg.GenInt(nh - nh / 4, nh / 4);
 		rrd.faVelocityX[i + nCount] = (float)rg.GenInt(20, -20);
 		rrd.faVelocityY[i + nCount] = (float)rg.GenInt(20, -20);
+/*
 		if (bLoose)
 			rrd.faElasticFactor[i + nCount] = fef_loose;
 		else
 			rrd.faElasticFactor[i + nCount] = fef_comm;
+*/
 		rrd.faAntiG[i + nCount] = 1.0f;
 		clr = RandomNormalColor(rg);
 		rrd.caColor[i + nCount] = clr;
@@ -723,10 +720,12 @@ void CShowWnd::InitWorldRaw(int ntc, int nG, int nc, int ngs, int nbh, int nc2, 
 		rrd.faPosY[i + nCount] = (float)rg.GenInt(nh - nh / 4, nh / 4);
 		rrd.faVelocityX[i + nCount] = (float)rg.GenInt(20, -20);
 		rrd.faVelocityY[i + nCount] = (float)rg.GenInt(20, -20);
+/*
 		if (bLoose)
 			rrd.faElasticFactor[i + nCount] = fef_loose;
 		else
 			rrd.faElasticFactor[i + nCount] = fef_comm;
+*/
 		rrd.faAntiG[i + nCount] = -1.0f;
 		clr = RandomAntiGColor(rg);
 		rrd.caColor[i + nCount] = clr;
