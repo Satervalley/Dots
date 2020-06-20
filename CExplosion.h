@@ -468,7 +468,7 @@ protected:
     int nVMin{ 200 }, nVMax{ 500 };
     int nCountMin{ 40 }, nCountMax{ 120 };   // per wave line count
     int nLifeSpanMin{ 200 }, nLifeSpanMax{ 400 }; // must divide 1000, wave life span
-    int nWaveCountMin{ 10 }, nWaveCountMax{ 60 };
+    int nWaveCountMin{ 10 }, nWaveCountMax{ 70 };
     int nWaveCount, nWaveNumber;   // how many waves, number is fixed
     float fRadius;
     float fFactor;

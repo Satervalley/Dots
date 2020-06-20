@@ -563,14 +563,14 @@ public:
     void ComboOutput(bool bMT, float fdt, const CRect& rect)
     {
         float fMeanVX, fMeanVY;
-        float fli, fri, fti, fbi;
         float fdvx = 0.f, fdvy = 0.f;
-
+        float fff = rdRawData.fG * fdt;
+        //CRect rect1 = rect;
+        //rect1.DeflateRect(50, 50);
         PassAllEffects(fdt, EPassType::ptBeforeVelocity);
         for (int i = 0; i < nAmount; i++)
         {
-//            PassEffect(rdRawData, i, fdt, EPassType::ptBeforeVelocity);
-
+            ForceField(i, rect, fff);
             fdvx = fdvy = 0.f;
             if (bMT)
             {
@@ -599,33 +599,8 @@ public:
             //rdRawData.faPosY[i] += rdRawData.faVelocityY[i] * fdt;
 
             // reflecting
-            if (rdRawData.bReflection)
-            {
-                fli = float(rect.left) + rdRawData.faRadius[i];
-                fri = float(rect.right) - rdRawData.faRadius[i];
-                fti = float(rect.top) + rdRawData.faRadius[i];
-                fbi = float(rect.bottom) - rdRawData.faRadius[i];
-                if (rdRawData.faPosX[i] < fli)
-                {
-                    rdRawData.faPosX[i] = fli + fli - rdRawData.faPosX[i];
-                    rdRawData.faVelocityX[i] = -rdRawData.faVelocityX[i] * ElasticFactor(rdRawData.faVelocityX[i])/*rdRawData.faElasticFactor[i]*/;
-                }
-                else if (rdRawData.faPosX[i] > fri)
-                {
-                    rdRawData.faPosX[i] = fri - rdRawData.faPosX[i] + fri;
-                    rdRawData.faVelocityX[i] = -rdRawData.faVelocityX[i] * ElasticFactor(rdRawData.faVelocityX[i])/*rdRawData.faElasticFactor[i]*/;
-                }
-                if (rdRawData.faPosY[i] < fti)
-                {
-                    rdRawData.faPosY[i] = fti + fti - rdRawData.faPosY[i];
-                    rdRawData.faVelocityY[i] = -rdRawData.faVelocityY[i] * ElasticFactor(rdRawData.faVelocityY[i])/*rdRawData.faElasticFactor[i]*/;
-                }
-                else if (rdRawData.faPosY[i] > fbi)
-                {
-                    rdRawData.faPosY[i] = fbi - rdRawData.faPosY[i] + fbi;
-                    rdRawData.faVelocityY[i] = -rdRawData.faVelocityY[i] * ElasticFactor(rdRawData.faVelocityY[i])/*rdRawData.faElasticFactor[i]*/;
-                }
-            }
+//            Reflection(i, rect);
+
             PassEffect(i, fdt, EPassType::ptPosition);
         }
         GenEffect();
@@ -820,12 +795,77 @@ protected:
     }
 
 
-    float ElasticFactor(float v)
+    float ElasticFactor(float v, float base = 1000.f)
     {
         v = ::fabsf(v);
-        float f = v / (v + 2000.f);
+        float f = v / (v + base);
         return (1.f - f * f);
     }
+
+
+    void Reflection(int i, const CRect& rect)
+    {
+        float fli, fri, fti, fbi;
+        if (rdRawData.bReflection)
+        {
+            fli = float(rect.left) + rdRawData.faRadius[i];
+            fri = float(rect.right) - rdRawData.faRadius[i];
+            fti = float(rect.top) + rdRawData.faRadius[i];
+            fbi = float(rect.bottom) - rdRawData.faRadius[i];
+            if (rdRawData.faPosX[i] < fli)
+            {
+                rdRawData.faPosX[i] = fli + fli - rdRawData.faPosX[i];
+                rdRawData.faVelocityX[i] = -rdRawData.faVelocityX[i] * ElasticFactor(rdRawData.faVelocityX[i])/*rdRawData.faElasticFactor[i]*/;
+            }
+            else if (rdRawData.faPosX[i] > fri)
+            {
+                rdRawData.faPosX[i] = fri - rdRawData.faPosX[i] + fri;
+                rdRawData.faVelocityX[i] = -rdRawData.faVelocityX[i] * ElasticFactor(rdRawData.faVelocityX[i])/*rdRawData.faElasticFactor[i]*/;
+            }
+            if (rdRawData.faPosY[i] < fti)
+            {
+                rdRawData.faPosY[i] = fti + fti - rdRawData.faPosY[i];
+                rdRawData.faVelocityY[i] = -rdRawData.faVelocityY[i] * ElasticFactor(rdRawData.faVelocityY[i])/*rdRawData.faElasticFactor[i]*/;
+            }
+            else if (rdRawData.faPosY[i] > fbi)
+            {
+                rdRawData.faPosY[i] = fbi - rdRawData.faPosY[i] + fbi;
+                rdRawData.faVelocityY[i] = -rdRawData.faVelocityY[i] * ElasticFactor(rdRawData.faVelocityY[i])/*rdRawData.faElasticFactor[i]*/;
+            }
+        }
+    }
+
+
+    void ForceField(int i, const CRect& rect, float fff)
+    {
+        float fli, fri, fti, fbi;
+        fli = rdRawData.faPosX[i] - float(rect.left);
+        fri = float(rect.right) - rdRawData.faPosX[i];
+        fti = rdRawData.faPosY[i] - float(rect.top);
+        fbi = float(rect.bottom) - rdRawData.faPosY[i];
+        if (fli < 0.f || fri < 0.f || fti < 0.f || fbi < 0.f)
+        {
+            rdRawData.faVelocityX[i] *= ElasticFactor(rdRawData.faVelocityX[i], 1000.f);
+            rdRawData.faVelocityY[i] *= ElasticFactor(rdRawData.faVelocityY[i], 1000.f);
+            if (fli < 0.f)
+            {
+                rdRawData.faVelocityX[i] -= fff * fli;
+            }
+            else if (fri < 0.f)
+            {
+                rdRawData.faVelocityX[i] += fff * fri;
+            }
+            if (fti < 0.f)
+            {
+                rdRawData.faVelocityY[i] -= fff * fti;
+            }
+            else if (fbi < 0.f)
+            {
+                rdRawData.faVelocityY[i] += fff * fbi;
+            }
+        }
+    }
+
 //----------------------------------------------------------------------------------------------------------------------
 /*
     int Reflect(SBody& b)
