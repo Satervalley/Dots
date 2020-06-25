@@ -92,7 +92,7 @@ void CShowWnd::OnLButtonDown(UINT nFlags, CPoint point)
 		pWorld->rdRawData.faPosX[0] = float(point.x);
 		pWorld->rdRawData.faPosY[0] = float(point.y);
 		pWorld->rdRawData.caColor[0] = RGB(100, 100, 100);
-		CExplosion2 exp(0, pWorld->rdRawData);
+		CExplosion3 exp(0, pWorld->rdRawData);
 		//CExplosion exp(0, pWorld->rdRawData, 1.f);
 		CRenderTarget* prt = GetRenderTarget();
 		bool b;
@@ -584,10 +584,13 @@ void CShowWnd::InitWorldRaw(int ntc, int nG, int nc, int ngs, int nbh, int nc2, 
 	nw = rect.Width();
 	nh = rect.Height();
 	pWorld->Init(nw, nh, rrd.nAmount, m_hWnd);
+	pWorld->SetConstraintRect(rect, int(::powf(fG, 0.25) * 6.f));
 	bmpBodys.clear();
 	int nCount = 0;
 	COLORREF clr;
 	rrd.fG = (float)nG;
+	rrd.fElasticFactorBase = ::sqrtf(rrd.fG) * 100.f;
+
 	for (int i = 0; i < ngs; i++)	// normal giant star
 	{
 		rrd.eaStarType[i] = EStarType::stGiant;
@@ -731,7 +734,7 @@ void CShowWnd::InitWorldRaw(int ntc, int nG, int nc, int ngs, int nbh, int nc2, 
 		rrd.caColor[i + nCount] = clr;
 		bmpBodys.push_back(GenDot(nd, clr, bLoose));
 	}
-
+	
 //	rrd.Output(L"mt0.txt", nAmount);
 }
 
@@ -743,9 +746,7 @@ void CShowWnd::Run(void)
 	{
 		bRunning = true;
 		pWorld->SetStop(false);
-		CRect rect;
-		GetClientRect(&rect);
-		SThreadParams::Init(1, &pWorld->rdRawData, rect);
+		SThreadParams::Init(1, &pWorld->rdRawData);
 		::AfxBeginThread(WorldRunFunction, pWorld);
 		::SetEvent(SThreadParams::hRenderEnd);
 		::AfxBeginThread(RenderFunction, nullptr);
@@ -762,7 +763,7 @@ void CShowWnd::RunGrid(void)
 		pWorld->SetStop(false);
 		CRect rect;
 		GetClientRect(&rect);
-		SThreadParams::Init(1, &pWorld->rdRawData, rect);
+		SThreadParams::Init(1, &pWorld->rdRawData);
 		pWorld->PrepareGrid(rect);
 		::AfxBeginThread(WorldRunFunction, pWorld);
 	}
@@ -787,9 +788,7 @@ void CShowWnd::RunMultiThread(int nThreadCount)
 	{
 		bRunning = true;
 		pWorld->SetStop(false);
-		CRect rect;
-		GetClientRect(&rect);
-		SThreadParams::Init(nThreadCount, &pWorld->rdRawData, rect);
+		SThreadParams::Init(nThreadCount, &pWorld->rdRawData);
 		for (int i = 1; i < nThreadCount; i++)
 		{
 			pWorld->tpThreadParams[i].nIndex = i;
@@ -882,7 +881,7 @@ UINT __cdecl WorldRunFunctionControl(LPVOID pParam)
 		fCT = (float)tmRun.GetPassed();
 		::WaitForSingleObject(SThreadParams::hRenderEnd, INFINITE);
 		tmRun.Start();
-		pw->ComboOutput(true, /*SThreadParams::fDeltaTime*/SThreadParams::fFixedDeltaTime, SThreadParams::rectConstraint);
+		pw->ComboOutput(true, /*SThreadParams::fDeltaTime*/SThreadParams::fFixedDeltaTime);
 		fCT += (float)tmRun.GetPassed();
 		::SetEvent(SThreadParams::hRenderStart);
 /*

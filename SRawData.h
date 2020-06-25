@@ -83,6 +83,7 @@ struct SRawData
     COLORREF* caColor{ nullptr };
     void** pEffects{ nullptr };
     bool bReflection{ true };
+    float fElasticFactorBase{ 1000.f };
     
 
     void Prepare(int ncm, int ngs, int nbh, int nacm, int nags, int nabh, int ntc)

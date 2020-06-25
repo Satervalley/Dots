@@ -145,17 +145,15 @@ struct SThreadParams
     static float fRenderTime;
     static bool bUsingSIMD;
 
-    static CRect rectConstraint;
     static HWND hwndTarget;
     static CString strStat;
 
     int nIndex{ 0 };
 
-    static void Init(int nThreadCount, SRawData* prd, const CRect& rect)
+    static void Init(int nThreadCount, SRawData* prd)
     {
         nWorkerCount = nThreadCount - 1;
         pRawData = prd;
-        rectConstraint = rect;
         Split(prd->nAmount, nThreadCount, nJobSegs);
         bStop = false;
         fDeltaTime = 0.f;
@@ -335,6 +333,17 @@ public:
     }
 
 
+    void SetConstraintRect(const CRect& rect, int nDef = 24)
+    {
+        rectConstraint = rect;
+        if (nDef < 8)
+            nDef = 8;
+        if (nDef > 48)
+            nDef = 48;
+        rectConstraint.DeflateRect(nDef, nDef);
+    }
+
+
 //----------------------------------------------------------------------------------------------------------------------
 /*
     void Pass(float deltaTime, float& tmCal, float& tmRender)
@@ -386,7 +395,7 @@ public:
 
 
 //----------------------------------------------------------------------------------------------------------------------
-    void Pass2(float deltaTime, const CRect& rect, float& tmCal)
+    void Pass2(float deltaTime, float& tmCal)
     {
         static CHiTimer timer;
         timer.Start();
@@ -396,7 +405,7 @@ public:
         ::WaitForSingleObject(SThreadParams::hRenderEnd, INFINITE);
         // update position and reflection
         timer.Start();
-        ComboOutput(false, deltaTime, rect);
+        ComboOutput(false, deltaTime);
         tmCal += (float)timer.GetPassed();
         ::SetEvent(SThreadParams::hRenderStart);
 
@@ -411,7 +420,7 @@ public:
 
 
 //----------------------------------------------------------------------------------------------------------------------
-    void Pass2_SIMD(float deltaTime, const CRect& rect, float& tmCal)
+    void Pass2_SIMD(float deltaTime, float& tmCal)
     {
         static CHiTimer timer;
         timer.Start();
@@ -421,7 +430,7 @@ public:
         ::WaitForSingleObject(SThreadParams::hRenderEnd, INFINITE);
         // update position and reflection
         timer.Start();
-        ComboOutput(false, deltaTime, rect);
+        ComboOutput(false, deltaTime);
         tmCal += (float)timer.GetPassed();
         ::SetEvent(SThreadParams::hRenderStart);
         //tmRender = 0.f;
@@ -435,14 +444,14 @@ public:
 
 
 //----------------------------------------------------------------------------------------------------------------------
-    void Pass2_Grid(float deltaTime, const CRect& rect, float& tmCal)
+    void Pass2_Grid(float deltaTime, float& tmCal)
     {
         static CHiTimer timer;
         timer.Start();
         // update velocity
         grid.Pass(rdRawData, deltaTime);
         // update position and reflection
-        ComboOutput(false, deltaTime, rect);
+        ComboOutput(false, deltaTime);
         tmCal = (float)timer.GetPassed();
         //tmRender = 0.f;
         //if (::IsWindow(hwndTarget))
@@ -526,7 +535,7 @@ public:
             deltaTime = float(tmPass.GetPassed(true));
             if (deltaTime > 0.5f || deltaTime < 0.0f)
                 deltaTime = 0.5f;
-            (this->*pPassFunc)(/*deltaTime*/SThreadParams::fFixedDeltaTime, SThreadParams::rectConstraint, fCT);
+            (this->*pPassFunc)(/*deltaTime*/SThreadParams::fFixedDeltaTime, fCT);
 /*
             nms = int(tmRun.GetPassed() * 1000. + .5);
             nms = nFrameTimeMax - nms;
@@ -560,17 +569,17 @@ public:
 
 
 //----------------------------------------------------------------------------------------------------------------------
-    void ComboOutput(bool bMT, float fdt, const CRect& rect)
+    void ComboOutput(bool bMT, float fdt)
     {
         float fMeanVX, fMeanVY;
         float fdvx = 0.f, fdvy = 0.f;
-        float fff = rdRawData.fG * fdt;
+        float fff = rdRawData.fG * fdt / 4.f;
         //CRect rect1 = rect;
         //rect1.DeflateRect(50, 50);
         PassAllEffects(fdt, EPassType::ptBeforeVelocity);
         for (int i = 0; i < nAmount; i++)
         {
-            ForceField(i, rect, fff);
+            ForceField(i, rectConstraint, fff);
             fdvx = fdvy = 0.f;
             if (bMT)
             {
@@ -623,7 +632,7 @@ public:
     void SetEventFrequency(int nTF, int nEF)
     {
         int ntfs[4] = { 2048, 2048, 4096, 8192 };
-        int nefs[4] = { 32, 32, 64, 128 };
+        int nefs[4] = { 8, 8, 64, 128 };
         nTF = nTF % 4;
         nEF = nEF % 4;
         if (nTF == 0)
@@ -647,6 +656,7 @@ public:
     }
 protected:
     CRect rectArea;
+    CRect rectConstraint;
     int nAmount;
     //SBody bodys[MAX_AMOUNT];
     HWND hwndTarget{ nullptr };
@@ -739,10 +749,19 @@ protected:
                     }
                     //CExplosion* pee = new CExplosion(ni, rdRawData, /*200.f, */factor);
                     CEffect* pee = nullptr;
-                    if(rgRandom.GenBool())
-                        pee = new CExplosion2(ni, rdRawData, 0.03f, factor);
-                    else
+                    switch (rgRandom.GenInt(3))
+                    {
+                    case 0:
                         pee = new CExplosion(ni, rdRawData, factor);
+                        break;
+                    case 1:
+                        pee = new CExplosion2(ni, rdRawData, 0.03f, factor);
+                        break;
+                    case 2:
+                    default:
+                        pee = new CExplosion3(ni, rdRawData, 0.01f, factor);
+                        break;
+                    }
                     rdRawData.pEffects[ni] = pee;
                     emEffectMan.Add(pee);
                     bRes = true;
@@ -795,7 +814,7 @@ protected:
     }
 
 
-    float ElasticFactor(float v, float base = 1000.f)
+    float ElasticFactor(float v, float base)
     {
         v = ::fabsf(v);
         float f = v / (v + base);
@@ -815,22 +834,22 @@ protected:
             if (rdRawData.faPosX[i] < fli)
             {
                 rdRawData.faPosX[i] = fli + fli - rdRawData.faPosX[i];
-                rdRawData.faVelocityX[i] = -rdRawData.faVelocityX[i] * ElasticFactor(rdRawData.faVelocityX[i])/*rdRawData.faElasticFactor[i]*/;
+                rdRawData.faVelocityX[i] = -rdRawData.faVelocityX[i] * ElasticFactor(rdRawData.faVelocityX[i], rdRawData.fElasticFactorBase)/*rdRawData.faElasticFactor[i]*/;
             }
             else if (rdRawData.faPosX[i] > fri)
             {
                 rdRawData.faPosX[i] = fri - rdRawData.faPosX[i] + fri;
-                rdRawData.faVelocityX[i] = -rdRawData.faVelocityX[i] * ElasticFactor(rdRawData.faVelocityX[i])/*rdRawData.faElasticFactor[i]*/;
+                rdRawData.faVelocityX[i] = -rdRawData.faVelocityX[i] * ElasticFactor(rdRawData.faVelocityX[i], rdRawData.fElasticFactorBase)/*rdRawData.faElasticFactor[i]*/;
             }
             if (rdRawData.faPosY[i] < fti)
             {
                 rdRawData.faPosY[i] = fti + fti - rdRawData.faPosY[i];
-                rdRawData.faVelocityY[i] = -rdRawData.faVelocityY[i] * ElasticFactor(rdRawData.faVelocityY[i])/*rdRawData.faElasticFactor[i]*/;
+                rdRawData.faVelocityY[i] = -rdRawData.faVelocityY[i] * ElasticFactor(rdRawData.faVelocityY[i], rdRawData.fElasticFactorBase)/*rdRawData.faElasticFactor[i]*/;
             }
             else if (rdRawData.faPosY[i] > fbi)
             {
                 rdRawData.faPosY[i] = fbi - rdRawData.faPosY[i] + fbi;
-                rdRawData.faVelocityY[i] = -rdRawData.faVelocityY[i] * ElasticFactor(rdRawData.faVelocityY[i])/*rdRawData.faElasticFactor[i]*/;
+                rdRawData.faVelocityY[i] = -rdRawData.faVelocityY[i] * ElasticFactor(rdRawData.faVelocityY[i], rdRawData.fElasticFactorBase)/*rdRawData.faElasticFactor[i]*/;
             }
         }
     }
@@ -845,8 +864,8 @@ protected:
         fbi = float(rect.bottom) - rdRawData.faPosY[i];
         if (fli < 0.f || fri < 0.f || fti < 0.f || fbi < 0.f)
         {
-            rdRawData.faVelocityX[i] *= ElasticFactor(rdRawData.faVelocityX[i], 1000.f);
-            rdRawData.faVelocityY[i] *= ElasticFactor(rdRawData.faVelocityY[i], 1000.f);
+            rdRawData.faVelocityX[i] *= ElasticFactor(rdRawData.faVelocityX[i], rdRawData.fElasticFactorBase);
+            rdRawData.faVelocityY[i] *= ElasticFactor(rdRawData.faVelocityY[i], rdRawData.fElasticFactorBase);
             if (fli < 0.f)
             {
                 rdRawData.faVelocityX[i] -= fff * fli;

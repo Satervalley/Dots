@@ -497,3 +497,40 @@ protected:
     }
 };
 
+
+class CExplosion3 : public CExplosion2
+{
+public:
+    CExplosion3(int ni, const SRawData& rd, float fInterval = 0.01f, float f = 1.0f) : CExplosion2(ni, rd, fInterval, f)
+    {
+        dtDrawType = EDrawType::dtAfter/*EDrawType::dtReplace*/;
+        ptPassType = EPassType::ptBeforeVelocity;
+
+        nLMax = int(rd.faRadius[ni] * 2.f);
+        nLMin = nLMax / 4;
+        nLMin = nLMin < 2 ? 2 : nLMin;
+        nWMax = nLMax;
+        nWMin = nLMin;
+
+        nVMin = 160;
+        nVMax = 240;
+        nCountMin = 60;
+        nCountMax = 100;
+        nLifeSpanMin = 1000;
+        nLifeSpanMax = 1500;
+        nWaveCountMin = 8;
+        nWaveCountMax = 12;
+
+        fRadius = float((nVMin + nVMax) / 2) * float(nLifeSpanMin + nLifeSpanMax) / 2000.f * f;
+        fFactor = f;
+        clrColor = rd.caColor[ni];
+        fGmAmp = float(rgRandom.GenInt(512, 256)) * rd.faRadius[nIndex] * rd.fG * 4.f;
+        fWaveInterval = fInterval;
+        nWaveCount = rgRandom.GenInt(nWaveCountMax, nWaveCountMin);
+        nWaveNumber = nWaveCount;
+        AddWave(rd.faPosX[ni], rd.faPosY[ni], rd.faVelocityX[ni], rd.faVelocityY[ni], LocalFactor());
+        nWaveCount--;
+    }
+
+};
+

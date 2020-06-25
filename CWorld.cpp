@@ -18,6 +18,5 @@ float SThreadParams::fDivergenceFactor{ 0.995f };
 float SThreadParams::fRenderTime{ 0.f };
 bool SThreadParams::bUsingSIMD{ false };
 
-CRect SThreadParams::rectConstraint;
 HWND SThreadParams::hwndTarget;
 CString SThreadParams::strStat;
