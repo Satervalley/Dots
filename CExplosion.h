@@ -379,7 +379,7 @@ public:
     typedef std::list<SWave_Pointer> SWave_Pointer_List;
 
 
-    CExplosion2(int ni, const SRawData& rd, float fInterval = 0.03f, float f = 1.0f) : CSingleEffect(ni)
+    CExplosion2(int ni, const SRawData& rd, float fInterval = 0.03f, float f = 1.0f, bool bAddWave = true) : CSingleEffect(ni)
     {
         dtDrawType = EDrawType::dtAfter/*EDrawType::dtReplace*/;
         ptPassType = EPassType::ptBeforeVelocity;
@@ -398,37 +398,18 @@ public:
         fWaveInterval = fInterval;
         nWaveCount = rgRandom.GenInt(nWaveCountMax, nWaveCountMin);
         nWaveNumber = nWaveCount;
-        AddWave(rd.faPosX[ni], rd.faPosY[ni], rd.faVelocityX[ni], rd.faVelocityY[ni], LocalFactor());
-        nWaveCount--;
+        if (bAddWave)
+        {
+            AddWave(rd.faPosX[ni], rd.faPosY[ni], rd.faVelocityX[ni], rd.faVelocityY[ni], LocalFactor());
+            nWaveCount--;
+        }
     }
 
     // return true: effect over
     virtual bool Pass(SRawData& rd, float fDeltaTime) override
     {
         fTimePassed2 += fDeltaTime;
-
-        float dx, dy;
-        float r3;
-        float fDistance2 = fRadius * fRadius;
-        float fGm = rd.faGm[nIndex] * fGmAmp;
-        float a, dvx, dvy;
-        for (int i = 0; i < rd.nAmount; i++)
-        {
-            if (i == nIndex)
-                continue;
-            dx = rd.faPosX[i] - rd.faPosX[nIndex];
-            dy = rd.faPosY[i] - rd.faPosY[nIndex];
-            r3 = dx * dx + dy * dy;
-            if (fDistance2 < r3)
-                continue;
-            r3 = (r3 + 0.001f) * ::sqrtf(r3 + 0.001f);
-            a = fGm / r3 / rd.faGm[i];
-            dvx = a * dx * fDeltaTime;
-            dvy = a * dy * fDeltaTime;
-            rd.faThreadOutputDVX[0][i] += dvx;
-            rd.faThreadOutputDVY[0][i] += dvy;
-        }
-
+        Push(rd, fDeltaTime);
         if (nWaveCount > 0)
         {
             if (fTimePassed2 - fTimePassed1 > fWaveInterval)
@@ -495,17 +476,40 @@ protected:
         f = ::sqrtf(f);
         return f;
     }
+
+
+    void Push(SRawData& rd, float fDeltaTime)
+    {
+        float dx, dy;
+        float r3;
+        float fDistance2 = fRadius * fRadius;
+        float fGm = rd.faGm[nIndex] * fGmAmp;
+        float a, dvx, dvy;
+        for (int i = 0; i < rd.nAmount; i++)
+        {
+            if (i == nIndex)
+                continue;
+            dx = rd.faPosX[i] - rd.faPosX[nIndex];
+            dy = rd.faPosY[i] - rd.faPosY[nIndex];
+            r3 = dx * dx + dy * dy;
+            if (fDistance2 < r3)
+                continue;
+            r3 = (r3 + 0.001f) * ::sqrtf(r3 + 0.001f);
+            a = fGm / r3 / rd.faGm[i];
+            dvx = a * dx * fDeltaTime;
+            dvy = a * dy * fDeltaTime;
+            rd.faThreadOutputDVX[0][i] += dvx;
+            rd.faThreadOutputDVY[0][i] += dvy;
+        }
+    }
 };
 
 
 class CExplosion3 : public CExplosion2
 {
 public:
-    CExplosion3(int ni, const SRawData& rd, float fInterval = 0.01f, float f = 1.0f) : CExplosion2(ni, rd, fInterval, f)
+    CExplosion3(int ni, const SRawData& rd, float fInterval = 0.01f, float f = 1.0f) : CExplosion2(ni, rd, fInterval, f, false)
     {
-        dtDrawType = EDrawType::dtAfter/*EDrawType::dtReplace*/;
-        ptPassType = EPassType::ptBeforeVelocity;
-
         nLMax = int(rd.faRadius[ni] * 2.f);
         nLMin = nLMax / 4;
         nLMin = nLMin < 2 ? 2 : nLMin;
@@ -522,10 +526,6 @@ public:
         nWaveCountMax = 12;
 
         fRadius = float((nVMin + nVMax) / 2) * float(nLifeSpanMin + nLifeSpanMax) / 2000.f * f;
-        fFactor = f;
-        clrColor = rd.caColor[ni];
-        fGmAmp = float(rgRandom.GenInt(512, 256)) * rd.faRadius[nIndex] * rd.fG * 4.f;
-        fWaveInterval = fInterval;
         nWaveCount = rgRandom.GenInt(nWaveCountMax, nWaveCountMin);
         nWaveNumber = nWaveCount;
         AddWave(rd.faPosX[ni], rd.faPosY[ni], rd.faVelocityX[ni], rd.faVelocityY[ni], LocalFactor());
@@ -533,4 +533,86 @@ public:
     }
 
 };
+
+
+class CExplosion4 : public CExplosion2
+{
+public:
+    CExplosion4(int ni, const SRawData& rd, float fInterval = 0.01f, float f = 1.0f) : CExplosion2(ni, rd, fInterval, f, false)
+    {
+        nLMax = int(rd.faRadius[ni] * 2.f);
+        nLMin = nLMax / 4;
+        nLMin = nLMin < 2 ? 2 : nLMin;
+        nWMax = nLMax;
+        nWMin = nLMin;
+
+        nVMin = 190;
+        nVMax = 210;
+        nCountMin = 48;
+        nCountMax = 64;
+        nLifeSpanMin = 1000;
+        nLifeSpanMax = 1200;
+        nWaveCountMin = 8;
+        nWaveCountMax = 12;
+
+        fRadius = float((nVMin + nVMax) / 2) * float(nLifeSpanMin + nLifeSpanMax) / 2000.f * f;
+        nWaveCount = GenGroups();
+        nWaveNumber = nWaveCount;
+    }
+
+    // return true: effect over
+    virtual bool Pass(SRawData& rd, float fDeltaTime) override
+    {
+        fTimePassed2 += fDeltaTime;
+        Push(rd, fDeltaTime);
+        if (nCurrWave < nWaveNumber)
+        {
+            if (fTimePassed2 > faTimes[nCurrWave])
+            {
+                AddWave(rd.faPosX[nIndex], rd.faPosY[nIndex], rd.faVelocityX[nIndex], rd.faVelocityY[nIndex], LocalFactor());
+                nCurrWave++;
+            }
+        }
+
+        bool bRes = true;
+        for (auto it = wplWaves.begin(); it != wplWaves.end(); )
+        {
+            if ((*it)->Pass(fDeltaTime))
+            {
+                bRes = false;
+                it++;
+            }
+            else
+                it = wplWaves.erase(it);
+        }
+        return bRes;
+    }
+
+protected:
+    int nGroupMin{ 3 }, nGroupMax{ 8 }; // how many groups
+    int nGroupWaveMin{ 3 }, nGroupWaveMax{ 6 }; // how many waves each group
+    float fGroupInterval{ 0.15f };
+    float faTimes[40];
+    int nCurrWave{ 0 };
+
+    int GenGroups(void)
+    {
+        int nGroupNumber = rgRandom.GenInt(nGroupMax, nGroupMin);
+        int n, nt = 0;
+        float ftt = 0.f;
+        for (int i = 0; i < nGroupNumber; i++)
+        {
+            n = rgRandom.GenInt(nGroupWaveMax, nGroupWaveMin);
+            for (int j = 0; j < n; j++)
+            {
+                ftt += fWaveInterval;
+                faTimes[nt] = ftt;
+                nt++;
+            }
+            ftt += fGroupInterval;
+        }
+        return nt;
+    }
+};
+
 

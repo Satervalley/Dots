@@ -92,7 +92,7 @@ void CShowWnd::OnLButtonDown(UINT nFlags, CPoint point)
 		pWorld->rdRawData.faPosX[0] = float(point.x);
 		pWorld->rdRawData.faPosY[0] = float(point.y);
 		pWorld->rdRawData.caColor[0] = RGB(100, 100, 100);
-		CExplosion3 exp(0, pWorld->rdRawData);
+		CExplosion4 exp(0, pWorld->rdRawData);
 		//CExplosion exp(0, pWorld->rdRawData, 1.f);
 		CRenderTarget* prt = GetRenderTarget();
 		bool b;

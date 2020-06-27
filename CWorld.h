@@ -749,7 +749,7 @@ protected:
                     }
                     //CExplosion* pee = new CExplosion(ni, rdRawData, /*200.f, */factor);
                     CEffect* pee = nullptr;
-                    switch (rgRandom.GenInt(3))
+                    switch (rgRandom.GenInt(4))
                     {
                     case 0:
                         pee = new CExplosion(ni, rdRawData, factor);
@@ -758,8 +758,11 @@ protected:
                         pee = new CExplosion2(ni, rdRawData, 0.03f, factor);
                         break;
                     case 2:
-                    default:
                         pee = new CExplosion3(ni, rdRawData, 0.01f, factor);
+                        break;
+                    case 3:
+                    default:
+                        pee = new CExplosion4(ni, rdRawData, 0.01f, factor);
                         break;
                     }
                     rdRawData.pEffects[ni] = pee;
